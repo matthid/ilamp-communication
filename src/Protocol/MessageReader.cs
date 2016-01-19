@@ -381,8 +381,24 @@ namespace DBus.Protocol
 
 		public Stream ReadUnixFileDescriptor ()
 		{
-			var handle = ReadInt32 ();
-			var stream = new Unix.UnixStream (handle);
+			var fdIndex = ReadUInt32 ();
+
+			//object count;
+			//var fds = message.Header.TryGetField (FieldCode.UnixFds, out count);
+			//if (fds && count != null) {
+				//ensure that index is < fds
+			//} 
+			//else 
+			//{
+				//throw new Exception ("Missing file descriptors");
+			//}
+
+			//TODO: need to look in the socket control message to get the accompanying 
+			//file descriptors.  This index will select which of the file descriptors is associated
+			//with this paramater, and return a unix stream to that descriptor
+
+			//for now just return a stream back to the console
+			var stream = new Unix.UnixStream (0);
 			return stream;
 		}
 
