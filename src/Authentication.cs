@@ -385,7 +385,7 @@ namespace DBus.Authentication
 				else
 					ActualId = UUID.Parse (reply[1]);
 
-				if (true/*requestUnixFD*/) {
+				if (SupportsUnixFileDescriptors) {
 					yield return new AuthCommand ("NEGOTIATE_UNIX_FD");
 
 					Peer.isFinalRead = true;

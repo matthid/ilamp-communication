@@ -41,6 +41,8 @@ namespace DBus
 		public delegate void MonitorEventHandler (Message msg);
 		public MonitorEventHandler Monitors; // subscribe yourself to this list of observers if you want to get notified about each incoming message
 
+		public bool SupportsUnixFileDescriptors{ get; private set; }
+
 		protected Connection ()
 		{
 
@@ -150,6 +152,7 @@ namespace DBus
 			auth.Peer = new SaslPeer ();
 			auth.Peer.Peer = auth;
 			auth.Peer.stream = transport.Stream;
+			auth.SupportsUnixFileDescriptors = true;
 
 			if (!auth.Authenticate ())
 				throw new Exception ("Authentication failure");
@@ -162,6 +165,7 @@ namespace DBus
 				Id = auth.ActualId;
 
 			isAuthenticated = true;
+			this.SupportsUnixFileDescriptors = auth.SupportsUnixFileDescriptors;
 		}
 
 		// Interlocked.Increment() handles the overflow condition for uint correctly,

@@ -18,7 +18,7 @@
     <DebugType>full</DebugType>
     <Optimize>False</Optimize>
     <OutputPath>.</OutputPath>
-    <DefineConstants>DEBUG;TRACE;STRONG_NAME;NET35</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;STRONG_NAME;NET35;UNIXFDS</DefineConstants>
     <ErrorReport>none</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
@@ -36,7 +36,9 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
-    <Reference Include="Mono.Posix" />
+    <Reference Include="Mono.Posix">
+      <HintPath>..\..\..\..\..\..\..\opt\mono\lib\mono\gac\Mono.Posix\4.0.0.0__0738eb9f132ed756\Mono.Posix.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Address.cs" />
@@ -79,16 +81,11 @@
     <Compile Include="Transports\UnixTransport.cs" />
     <Compile Include="Unix\UnixStream.cs" />
     <Compile Include="Unix\UnixError.cs" />
-    <Compile Include="Unix\UnixSocket.cs" />
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="Unix\UnixSocket.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>
     <VisualStudio AllowExistingFolder="true" />
   </ProjectExtensions>
-  <ItemGroup>
-    <Content Include="dbus-sharp.dll.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
 </Project>

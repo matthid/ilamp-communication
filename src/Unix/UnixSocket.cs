@@ -162,6 +162,20 @@ namespace DBus.Unix
 			connected = false;
 		}
 
+		public void Connect()
+		{
+			int r = 0;
+
+			do {
+				r = connect (Handle, null, 0);
+			} while (r < 0 && UnixError.ShouldRetry);
+
+			if (r < 0)
+				throw UnixError.GetLastUnixException ();
+
+			connected = true;
+		}
+
 		//TODO: consider memory management
 		public void Connect (byte[] remote_end)
 		{
@@ -233,8 +247,12 @@ namespace DBus.Unix
 				r = (int)read (Handle, bufP, (SizeT)count);
 			} while (r < 0 && UnixError.ShouldRetry);
 
-			if (r < 0)
+			if (r < 0) {
+				var error = Marshal.GetLastWin32Error ();
+				System.Console.WriteLine ("Error " + error);
+
 				throw UnixError.GetLastUnixException ();
+			}
 
 			return r;
 		}
@@ -253,18 +271,70 @@ namespace DBus.Unix
 			return r;
 		}
 
-		public int RecvMsg (void* bufP, int flags)
+
+
+		public ReceivedMessage RecvMsg ()
 		{
-			int r = 0;
+//			int r = 0;
+//
+//			do {
+//				r = (int)recvmsg (Handle, bufP, flags);
+//			} while (r < 0 && UnixError.ShouldRetry);
+//
+//			if (r < 0)
+//				throw UnixError.GetLastUnixException ();
+//
+//			return r;
 
-			do {
-				r = (int)recvmsg (Handle, bufP, flags);
-			} while (r < 0 && UnixError.ShouldRetry);
+			var buffer2 = new byte[1024*10];
+			var cmsg2 = new byte[1024*10];
+			var msghdr2 = new Mono.Unix.Native.Msghdr {
+				msg_control = cmsg2,
+				msg_controllen = cmsg2.Length,
+			};
+			var result = new ReceivedMessage ();
+			fixed (byte* ptr_buffer2 = buffer2) {
+				var iovecs2 = new Mono.Unix.Native.Iovec[] {
+					new Mono.Unix.Native.Iovec {
+						iov_base = (IntPtr) ptr_buffer2,
+						iov_len = (ulong) buffer2.Length,
+					},
+				};
+				msghdr2.msg_iov = iovecs2;
+				msghdr2.msg_iovlen = 1;
+				//System.Console.WriteLine ("recvmsg");
+				var ret = Mono.Unix.Native.Syscall.recvmsg (Handle, msghdr2,0);
 
-			if (r < 0)
-				throw UnixError.GetLastUnixException ();
+				if (ret ==-1)  {
+					var lastError = Marshal.GetLastWin32Error ();
+					System.Console.WriteLine ("Last error " + lastError);
+					System.Console.WriteLine ("Description" + Mono.Unix.UnixMarshal.GetErrorDescription((Mono.Unix.Native.Errno)lastError));
+					Mono.Unix.UnixMarshal.ThrowExceptionForLastError ();
+				}
 
-			return r;
+				result.Read = ret;
+				result.Message = buffer2;
+			}
+				
+			#if UNIXFDS
+			var fds = new global::System.Collections.Generic.List<int> ();
+			for (long offset = Mono.Unix.Native.Syscall.CMSG_FIRSTHDR (msghdr2); offset != -1; offset = Mono.Unix.Native.Syscall.CMSG_NXTHDR (msghdr2, offset)) {
+				var recvHdr = Mono.Unix.Native.Cmsghdr.ReadFromBuffer (msghdr2, offset);
+				var recvDataOffset = Mono.Unix.Native.Syscall.CMSG_DATA (msghdr2, offset);
+				var bytes = recvHdr.cmsg_len - (recvDataOffset - offset);
+				//Assert.AreEqual (bytes % sizeof (int), 0);
+				var fdCount = bytes / sizeof (int);
+				//System.Console.WriteLine("based on struct size, there should be "+fdCount+" fds");
+				fixed (byte* ptr = msghdr2.msg_control)
+				for (int i = 0; i < fdCount; i++)
+					fds.Add (((int*) (ptr + recvDataOffset))[i]);
+			}
+			if(fds.Count>0)
+			{
+				result.FileDescriptors = fds.ToArray ();
+			}
+			#endif
+			return result;
 		}
 
 		public int SendMsg (void* bufP, int flags)
@@ -327,5 +397,12 @@ namespace DBus.Unix
 			return Write (iov, 0, iov.Length);
 		}
 
+	}
+
+	public class ReceivedMessage
+	{
+		public long Read;
+		public byte[] Message;
+		public int[] FileDescriptors;
 	}
 }

@@ -139,6 +139,7 @@ namespace DBus.Transports
 			client.Connect (sa);
 			return client;
 		}
+			
 	}
 
 #if HAVE_CMSGCRED

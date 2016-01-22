@@ -100,5 +100,7 @@ namespace DBus.Protocol
 			header.WriteHeaderToMessage (writer);
 			return writer.ToArray ();
 		}
+
+		public int[] UnixFDS{get;set;}
 	}
 }

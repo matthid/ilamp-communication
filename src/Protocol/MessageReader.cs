@@ -381,25 +381,81 @@ namespace DBus.Protocol
 
 		public Stream ReadUnixFileDescriptor ()
 		{
-			var fdIndex = ReadUInt32 ();
+			int fdIndex = ReadInt32 ();
+			if (message.Connection.SupportsUnixFileDescriptors) {
+//				if (message.UnixFDS == null) {
+//					var rec = ((Unix.UnixStream)message.Connection.Transport.stream).ReceiveMessage ();
+//					message.UnixFDS = rec.FileDescriptors;
+//				}
 
-			//object count;
-			//var fds = message.Header.TryGetField (FieldCode.UnixFds, out count);
-			//if (fds && count != null) {
-				//ensure that index is < fds
-			//} 
-			//else 
-			//{
-				//throw new Exception ("Missing file descriptors");
-			//}
 
-			//TODO: need to look in the socket control message to get the accompanying 
-			//file descriptors.  This index will select which of the file descriptors is associated
-			//with this paramater, and return a unix stream to that descriptor
 
-			//for now just return a stream back to the console
-			var stream = new Unix.UnixStream (0);
-			return stream;
+
+				System.Console.WriteLine ("Received File Descriptor Index " + fdIndex);
+
+				object count;
+				if (message.Header.TryGetField (FieldCode.UnixFds, out count)) {
+					System.Console.WriteLine ("FD Count " + count+","+count.GetType());
+					if ((uint)fdIndex >= ((uint)count)) {
+						throw new IndexOutOfRangeException ("Specified file descriptor index is outside the range of supplied file descriptors");
+					} else if (message.UnixFDS != null && fdIndex < message.UnixFDS.Length) {
+						//Console.WriteLine ("Attempting to read descriptor");
+						//get a list of socket control messages from the connection
+
+						//TODO: need to look in the socket control message to get the accompanying 
+						//file descriptors.  This index will select which of the file descriptors is associated
+						//with this paramater, and return a unix stream to that descriptor
+
+						int fd = message.UnixFDS [fdIndex];
+
+						System.Console.WriteLine ("FD = " + fd);
+						//return new Mono.Unix.UnixStream (fd,true);
+						//for now just return a stream back to the console
+
+						try
+						{
+							//var newFd = Mono.Unix.Native.Syscall.dup (fd);
+
+							//System.Console.WriteLine ("FD = " + newFd);
+
+							//var x = new Unix.UnixSocket (fd, true);
+							//x.Accept();
+							//System.Console.WriteLine ("Unix Socket Connect");
+							//x.Connect();
+							//System.Console.WriteLine("Unix Socke Connected");
+							//var stream = new Unix.UnixStream (x);
+
+							//Mono.Unix.Native.Sockaddr addr=new Mono.Unix.Native.Sockaddr();
+							//Mono.Unix.Native.Syscall.getsockname(fd,addr);
+							//var socket = new Unix.UnixSocket(fd,true);
+
+							//var stream = new Unix.UnixStream(socket);
+							var stream = new Mono.Unix.UnixStream(fd,true);
+
+							System.Console.WriteLine ("Stream Created");
+							return stream;
+						}
+						catch(Exception ex) {
+							System.Console.WriteLine ("Message Reader");
+							System.Console.WriteLine (ex.Message);
+							System.Console.WriteLine (ex.StackTrace);
+							throw;
+						}
+					} 
+					else 
+					{
+						Console.WriteLine ("No file descriptors read from control messages");
+						throw new Exception("No file descriptors read from control messages");
+					}
+				} else {
+					System.Console.WriteLine("Missing file descriptors");
+					throw new Exception ("Missing file descriptors");
+				}
+
+
+			} else {
+				return null;
+			}
 		}
 
 		public Signature ReadSignature ()

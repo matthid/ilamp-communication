@@ -16,7 +16,12 @@ namespace DBus.Transports
 		readonly object writeLock = new object ();
 
 		[ThreadStatic]
+		public Unix.ReceivedMessage message;
+		[ThreadStatic]
 		static byte[] readBuffer;
+		[ThreadStatic]
+		static int pos;
+
 
 		protected Connection connection;
 
@@ -151,39 +156,83 @@ namespace DBus.Transports
 		{
 			Message msg;
 
-			try {
-				msg = ReadMessageReal ();
-			} catch (IOException e) {
-				if (ProtocolInformation.Verbose)
-					Console.Error.WriteLine (e.Message);
-				connection.IsConnected = false;
-				msg = null;
-			}
+				try {
+					msg = ReadMessageReal ();
+				} catch (/*IO*/Exception e) {
+					if (ProtocolInformation.Verbose)
+						Console.Error.WriteLine (e.Message);
+					connection.IsConnected = false;
+					msg = null;
+				}
          
-			if (connection != null && connection.Monitors != null)
-				connection.Monitors (msg);
+				if (connection != null && connection.Monitors != null)
+					connection.Monitors (msg);
 
-			return msg;
+				return msg;
+
 		}
 
 		int Read (byte[] buffer, int offset, int count)
 		{
+//			System.Console.WriteLine ("Read(" + offset + "," + count + ")");
+//			int read = 0;
+//			while (read < count) {
+//				int nread = stream.Read (buffer, offset + read, count - read);
+//				if (nread == 0)
+//					break;
+//				read += nread;
+//			}
+//
+//			if (read > count)
+//				throw new Exception ();
+//
+//			return read;
+
+
 			int read = 0;
-			while (read < count) {
-				int nread = stream.Read (buffer, offset + read, count - read);
-				if (nread == 0)
-					break;
-				read += nread;
+			if (message == null) {
+				message = ((Unix.UnixStream)stream).ReceiveMessage ();
+
+//				if (message.Read > 0) {
+//					System.Console.WriteLine ("Read " + message.Read + " bytes");
+//					System.Console.WriteLine (System.Text.UTF8Encoding.UTF8.GetString (message.Message));
+//				}
+
+				pos = 0;
 			}
 
-			if (read > count)
-				throw new Exception ();
+			if(message!=null)
+			{
+				while (pos < message.Read && read<count) {
+					//System.Console.WriteLine ("copied " + pos);
+					buffer [offset + read] = message.Message [pos];
+					read++;
+					pos++;
+				}
+
+				while (read < count) {
+					message =  ((Unix.UnixStream)stream).ReceiveMessage ();
+					pos = 0;
+
+					if (message != null && message.Read>=0) {
+						while (pos < message.Read && read < count) {
+							//System.Console.WriteLine ("copied " + pos);
+							buffer [offset + read] = message.Message [pos];
+							read++;
+							pos++;
+						}
+					} else {
+						break;
+					}
+				}
+			}
 
 			return read;
 		}
 
 		Message ReadMessageReal ()
 		{
+
 			byte[] header = null;
 			byte[] body = null;
 
@@ -195,6 +244,11 @@ namespace DBus.Transports
 			byte[] hbuf = readBuffer;
 
 			read = Read (hbuf, 0, 16);
+
+//			System.Console.WriteLine ("Header");
+//			for (int i = 0; i < 16; i++) {
+//				System.Console.WriteLine(string.Format("{0:00}:{1}",i,hbuf[i]));
+//			}
 
 			if (read == 0)
 				return null;
@@ -225,6 +279,8 @@ namespace DBus.Transports
 			int bodyLen = (int)bodyLength;
 			int toRead = (int)headerLength;
 
+			//System.Console.WriteLine ("body=" + bodyLen + ", header=" + toRead);
+
 			//we fixup to include the padding following the header
 			toRead = ProtocolInformation.Padded (toRead, 8);
 
@@ -251,7 +307,10 @@ namespace DBus.Transports
 			}
 
 			Message msg = Message.FromReceivedBytes (Connection, header, body);
-
+			if (message != null && message.FileDescriptors != null && message.FileDescriptors.Length>0) {
+				System.Console.WriteLine ("Adding fds to message");
+				msg.UnixFDS = message.FileDescriptors;
+			}
 			return msg;
 		}
 

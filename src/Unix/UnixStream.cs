@@ -85,6 +85,11 @@ namespace DBus.Unix
 			return usock.Read (buffer, offset, count);
 		}
 
+		public ReceivedMessage ReceiveMessage()
+		{
+			return usock.RecvMsg ();
+		}
+
 		public override void Write (byte[] buffer, int offset, int count)
 		{
 			usock.Write (buffer, offset, count);

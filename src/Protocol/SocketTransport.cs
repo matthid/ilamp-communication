@@ -68,5 +68,6 @@ namespace DBus.Transports
 				Mono.Unix.Native.Syscall.geteuid ().ToString ()                       // Unix User ID
 				: System.Security.Principal.WindowsIdentity.GetCurrent ().User.Value; // Windows User ID
 		}
+
 	}
 }
