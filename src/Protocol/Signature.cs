@@ -626,7 +626,7 @@ namespace DBus.Protocol
 			if (type == typeof (ObjectPath))
 				return DType.ObjectPath;
 
-			if (type == typeof (Stream))
+			if (type == typeof (FileDescriptor))
 				return DType.UnixFileDescriptor;
 
 			if (type == typeof (Signature))
@@ -802,7 +802,7 @@ namespace DBus.Protocol
 			case DType.ObjectPath:
 				return typeof (ObjectPath);
 			case DType.UnixFileDescriptor:
-				return typeof(Stream);
+				return typeof(FileDescriptor);
 			case DType.Signature:
 				return typeof (Signature);
 			case DType.Array:
@@ -864,7 +864,7 @@ namespace DBus.Protocol
 			if (type == typeof (ObjectPath))
 				return Signature.ObjectPathSig;
 
-			if (type == typeof(Stream))
+			if (type == typeof(FileDescriptor))
 				return Signature.UnixFileDescriptorSig;
 
 			if (type == typeof (void))

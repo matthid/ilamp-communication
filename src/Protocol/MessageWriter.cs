@@ -201,8 +201,8 @@ namespace DBus.Protocol
 				mi.Invoke (this, new object[] {val});
 			} else if (type == typeof (ObjectPath)) {
 				Write ((ObjectPath)val);
-			} else if (type == typeof (Stream)) {
-				Write (DType.UnixFileDescriptor,((Unix.UnixStream)val).usock.Handle);
+			} else if (type == typeof (FileDescriptor)) {
+				Write((FileDescriptor)val);
 			} else if (type == typeof (Signature)) {
 				Write ((Signature)val);
 			} else if (type == typeof (object)) {
@@ -220,6 +220,21 @@ namespace DBus.Protocol
 				mi.Invoke (this, new[] { val });
 			} else {
 				Write (Signature.TypeToDType (type), val);
+			}
+		}
+
+		public void Write(FileDescriptor fd)
+		{
+
+			if (Connection.SupportsUnixFileDescriptors) {
+				int index = 0;
+				//TODO: if the transport supports it, add the FD to the socket control message
+				//and return the index
+				//insert the relevant index instead of the handle itself
+				//also increment the unixfds field count in the header
+				Write(DType.UnixFileDescriptor,index);
+			} else {
+				throw new NotSupportedException("Current connection does not support passing unix file descriptors");
 			}
 		}
 
@@ -302,14 +317,7 @@ namespace DBus.Protocol
 				break;
 			case DType.UnixFileDescriptor:
 				{
-					if(val.GetType()==typeof(Unix.UnixStream))
-					{
-						Write (((Unix.UnixStream)val).usock.Handle);
-					}
-					else
-					{
-						throw new NotImplementedException("Only UnixStream is implemented");
-					}
+					Write ((FileDescriptor)val);
 				}
 				break;
 				default:
@@ -514,6 +522,7 @@ namespace DBus.Protocol
 						Write (Signature.UInt32Sig);
 						Write ((uint)entry.Value);
 						break;
+					//TODO: Add FieldCode.UnixFDs
 					default:
 						Write (entry.Value);
 						break;

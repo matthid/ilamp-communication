@@ -83,6 +83,7 @@
     <Compile Include="Unix\UnixError.cs" />
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="Unix\UnixSocket.cs" />
+    <Compile Include="FileDescriptor.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ProjectExtensions>

@@ -174,60 +174,57 @@ namespace DBus.Transports
 
 		int Read (byte[] buffer, int offset, int count)
 		{
-//			System.Console.WriteLine ("Read(" + offset + "," + count + ")");
-//			int read = 0;
-//			while (read < count) {
-//				int nread = stream.Read (buffer, offset + read, count - read);
-//				if (nread == 0)
-//					break;
-//				read += nread;
-//			}
-//
-//			if (read > count)
-//				throw new Exception ();
-//
-//			return read;
-
-
-			int read = 0;
-			if (message == null) {
-				message = ((Unix.UnixStream)stream).ReceiveMessage ();
-
-//				if (message.Read > 0) {
-//					System.Console.WriteLine ("Read " + message.Read + " bytes");
-//					System.Console.WriteLine (System.Text.UTF8Encoding.UTF8.GetString (message.Message));
-//				}
-
-				pos = 0;
-			}
-
-			if(message!=null)
-			{
-				while (pos < message.Read && read<count) {
-					//System.Console.WriteLine ("copied " + pos);
-					buffer [offset + read] = message.Message [pos];
-					read++;
-					pos++;
+			//We have to use ReceiveMessage rather than read for fds
+			if (Connection.SupportsUnixFileDescriptors && stream is DBus.Unix.UnixStream) {
+				int read = 0;
+				if (message == null) {
+					message = ((Unix.UnixStream)stream).ReceiveMessage ();
+					pos = 0;
 				}
 
-				while (read < count) {
-					message =  ((Unix.UnixStream)stream).ReceiveMessage ();
-					pos = 0;
+				//TODO: clean this up into do-while
+				if (message != null) {
+					while (pos < message.Read && read < count) {
+						buffer [offset + read] = message.Message [pos];
+						read++;
+						pos++;
+					}
 
-					if (message != null && message.Read>=0) {
-						while (pos < message.Read && read < count) {
-							//System.Console.WriteLine ("copied " + pos);
-							buffer [offset + read] = message.Message [pos];
-							read++;
-							pos++;
+					while (read < count) {
+						message = ((Unix.UnixStream)stream).ReceiveMessage ();
+						pos = 0;
+
+						if (message != null && message.Read >= 0) {
+							while (pos < message.Read && read < count) {
+								buffer [offset + read] = message.Message [pos];
+								read++;
+								pos++;
+							}
+						} 
+						else {
+							break;
 						}
-					} else {
-						break;
 					}
 				}
-			}
 
-			return read;
+				return read;
+			} 
+			else 
+			{
+				System.Console.WriteLine ("Read(" + offset + "," + count + ")");
+				int read = 0;
+				while (read < count) {
+					int nread = stream.Read (buffer, offset + read, count - read);
+					if (nread == 0)
+						break;
+					read += nread;
+				}
+
+				if (read > count)
+					throw new Exception ();
+
+				return read;
+			}
 		}
 
 		Message ReadMessageReal ()
@@ -244,11 +241,6 @@ namespace DBus.Transports
 			byte[] hbuf = readBuffer;
 
 			read = Read (hbuf, 0, 16);
-
-//			System.Console.WriteLine ("Header");
-//			for (int i = 0; i < 16; i++) {
-//				System.Console.WriteLine(string.Format("{0:00}:{1}",i,hbuf[i]));
-//			}
 
 			if (read == 0)
 				return null;
@@ -279,8 +271,6 @@ namespace DBus.Transports
 			int bodyLen = (int)bodyLength;
 			int toRead = (int)headerLength;
 
-			//System.Console.WriteLine ("body=" + bodyLen + ", header=" + toRead);
-
 			//we fixup to include the padding following the header
 			toRead = ProtocolInformation.Padded (toRead, 8);
 
@@ -307,8 +297,10 @@ namespace DBus.Transports
 			}
 
 			Message msg = Message.FromReceivedBytes (Connection, header, body);
-			if (message != null && message.FileDescriptors != null && message.FileDescriptors.Length>0) {
-				System.Console.WriteLine ("Adding fds to message");
+
+			if (message != null 
+				&& message.FileDescriptors != null 
+				&& message.FileDescriptors.Length>0) {
 				msg.UnixFDS = message.FileDescriptors;
 			}
 			return msg;
@@ -318,6 +310,8 @@ namespace DBus.Transports
 		{
 			lock (writeLock) {
 				msg.Header.GetHeaderDataToStream (stream);
+				//TODO: extract file descriptors from msg and write them to the stream similiar to how we
+				//read them
 				if (msg.Body != null && msg.Body.Length != 0)
 					stream.Write (msg.Body, 0, msg.Body.Length);
 				stream.Flush ();

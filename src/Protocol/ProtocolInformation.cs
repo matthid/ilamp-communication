@@ -77,7 +77,7 @@ namespace DBus.Protocol
 				case DType.DictEntryBegin:
 					return 8;
 				case DType.UnixFileDescriptor:
-					return 4;
+					return 4;//note that this refers to the length of the INDEX to the FD, not the FD itself
 				case DType.Invalid:
 				default:
 					throw new Exception ("Cannot determine alignment of " + dtype);

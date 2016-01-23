@@ -94,9 +94,9 @@ namespace DBus.Protocol
 			} else if (type == typeof (ObjectPath)) {
 				readValueCache[type] = () => ReadObjectPath ();
 				return ReadObjectPath ();
-			} else if (type == typeof (Stream)) {
-				readValueCache[type] = () => ReadUnixFileDescriptor();
-				return ReadUnixFileDescriptor();
+			} else if (type == typeof (FileDescriptor)) {
+				readValueCache[type] = () => ReadFileDescriptor();
+				return ReadFileDescriptor();
 			} else if (type == typeof (Signature)) {
 				readValueCache[type] = () => ReadSignature ();
 				return ReadSignature ();
@@ -179,7 +179,7 @@ namespace DBus.Protocol
 					return ReadVariant ();
 
 				case DType.UnixFileDescriptor:
-					return ReadUnixFileDescriptor ();
+				return ReadFileDescriptor();
 
 				default:
 					throw new Exception ("Unhandled D-Bus type: " + dtype);
@@ -379,82 +379,34 @@ namespace DBus.Protocol
 			return new ObjectPath (ReadString ());
 		}
 
-		public Stream ReadUnixFileDescriptor ()
+		public FileDescriptor ReadFileDescriptor ()
 		{
 			int fdIndex = ReadInt32 ();
 			if (message.Connection.SupportsUnixFileDescriptors) {
-//				if (message.UnixFDS == null) {
-//					var rec = ((Unix.UnixStream)message.Connection.Transport.stream).ReceiveMessage ();
-//					message.UnixFDS = rec.FileDescriptors;
-//				}
-
-
-
-
-				System.Console.WriteLine ("Received File Descriptor Index " + fdIndex);
-
 				object count;
 				if (message.Header.TryGetField (FieldCode.UnixFds, out count)) {
 					System.Console.WriteLine ("FD Count " + count+","+count.GetType());
 					if ((uint)fdIndex >= ((uint)count)) {
 						throw new IndexOutOfRangeException ("Specified file descriptor index is outside the range of supplied file descriptors");
 					} else if (message.UnixFDS != null && fdIndex < message.UnixFDS.Length) {
-						//Console.WriteLine ("Attempting to read descriptor");
-						//get a list of socket control messages from the connection
-
-						//TODO: need to look in the socket control message to get the accompanying 
-						//file descriptors.  This index will select which of the file descriptors is associated
-						//with this paramater, and return a unix stream to that descriptor
-
 						int fd = message.UnixFDS [fdIndex];
 
-						System.Console.WriteLine ("FD = " + fd);
-						//return new Mono.Unix.UnixStream (fd,true);
-						//for now just return a stream back to the console
-
-						try
-						{
-							//var newFd = Mono.Unix.Native.Syscall.dup (fd);
-
-							//System.Console.WriteLine ("FD = " + newFd);
-
-							//var x = new Unix.UnixSocket (fd, true);
-							//x.Accept();
-							//System.Console.WriteLine ("Unix Socket Connect");
-							//x.Connect();
-							//System.Console.WriteLine("Unix Socke Connected");
-							//var stream = new Unix.UnixStream (x);
-
-							//Mono.Unix.Native.Sockaddr addr=new Mono.Unix.Native.Sockaddr();
-							//Mono.Unix.Native.Syscall.getsockname(fd,addr);
-							//var socket = new Unix.UnixSocket(fd,true);
-
-							//var stream = new Unix.UnixStream(socket);
-							var stream = new Mono.Unix.UnixStream(fd,true);
-
-							System.Console.WriteLine ("Stream Created");
-							return stream;
-						}
-						catch(Exception ex) {
-							System.Console.WriteLine ("Message Reader");
-							System.Console.WriteLine (ex.Message);
-							System.Console.WriteLine (ex.StackTrace);
-							throw;
-						}
+						var descriptor = new FileDescriptor (fd);
+						return descriptor;
 					} 
 					else 
 					{
-						Console.WriteLine ("No file descriptors read from control messages");
-						throw new Exception("No file descriptors read from control messages");
+						throw new Exception("No file descriptors read from control message");
 					}
 				} else {
-					System.Console.WriteLine("Missing file descriptors");
 					throw new Exception ("Missing file descriptors");
 				}
-
-
-			} else {
-				return null;
+			} 
+			else 
+			{
+				//would it be better to return a "special" file descriptor that indicates it's not supported
+				//that way the rest of the params can come through?
+				throw new NotSupportedException ("The current connection does not support unix file descriptors");
 			}
 		}
 
