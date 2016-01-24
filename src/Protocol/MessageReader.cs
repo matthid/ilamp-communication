@@ -107,7 +107,7 @@ namespace DBus.Protocol
 				readValueCache[type] = () => ReadString ();
 				return ReadString ();
 			} else if (type.IsGenericType 
-					&& (type.GetGenericTypeDefinition().IsAssignableFrom(typeof(IDictionary<,>)) 
+					&& (type.GetGenericTypeDefinition().IsAssignableFrom(typeof(Dictionary<,>)) 
 					|| type.GetGenericTypeDefinition().IsAssignableFrom(typeof(IDictionary<,>)))) {
 				Type[] genArgs = type.GetGenericArguments ();
 				readValueCache[type] = () => ReadDictionary (genArgs[0], genArgs[1]);
@@ -551,7 +551,7 @@ namespace DBus.Protocol
 						ptr[2 * i - pos + (sof - 1) - j] = data[j];
 			}
 
-			pos += (int)length * sof;
+			pos += (int)length /** sof*/;
 		}
 
 		bool[] MarshalBoolArray (uint length)

@@ -45,6 +45,7 @@ namespace org.freedesktop.DBus
 	public delegate void NameLostHandler (string name);
 	public delegate void InterfacesAddedHandler (ObjectPath path,IDictionary<string,IDictionary<string,object>> interfaces);
 	public delegate void InterfacesRemovedHandler (ObjectPath path,string[] interfaces);
+	public delegate void PropertiesChangedHandler (string @interface,IDictionary<string,object> changed,string[] invalidated);
 
 	[Interface ("org.freedesktop.DBus.Peer")]
 	public interface Peer
@@ -69,6 +70,7 @@ namespace org.freedesktop.DBus
 		void Set (string @interface, string propname, object value);
 		[return: Argument ("props")]
 		IDictionary<string,object> GetAll (string @interface);
+		event PropertiesChangedHandler PropertiesChanged;
 	}
 
 	[Interface ("org.freedesktop.DBus")]

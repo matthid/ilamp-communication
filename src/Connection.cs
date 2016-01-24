@@ -263,8 +263,8 @@ namespace DBus
 			}
 
 			switch (msg.Header.MessageType) {
-				case MessageType.MethodCall:
-					MessageContainer method_call = MessageContainer.FromMessage (msg);
+			case MessageType.MethodCall:
+				MessageContainer method_call = MessageContainer.FromMessage (msg);
 					HandleMethodCall (method_call);
 					break;
 				case MessageType.Signal:
