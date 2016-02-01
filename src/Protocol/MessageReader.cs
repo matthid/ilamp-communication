@@ -385,7 +385,7 @@ namespace DBus.Protocol
 			if (message.Connection.SupportsUnixFileDescriptors) {
 				object count;
 				if (message.Header.TryGetField (FieldCode.UnixFds, out count)) {
-					System.Console.WriteLine ("FD Count " + count+","+count.GetType());
+					//System.Console.WriteLine ("FD Count " + count+","+count.GetType());
 					if ((uint)fdIndex >= ((uint)count)) {
 						throw new IndexOutOfRangeException ("Specified file descriptor index is outside the range of supplied file descriptors");
 					} else if (message.UnixFDS != null && fdIndex < message.UnixFDS.Length) {
