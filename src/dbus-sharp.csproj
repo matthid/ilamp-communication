@@ -36,9 +36,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
-    <Reference Include="Mono.Posix">
-      <HintPath>..\..\..\..\..\..\..\..\..\..\opt\mono-2016.02.18+20.15.33\lib\mono\gac\Mono.Posix\4.0.0.0__0738eb9f132ed756\Mono.Posix.dll</HintPath>
-    </Reference>
+    <Reference Include="Mono.Posix" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Address.cs" />
