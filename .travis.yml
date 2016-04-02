@@ -1,8 +1,12 @@
+#our build is dependent upon mono head.  Some men just want to watch the world burn
 before_install: 
- - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
- - echo "deb http://download.mono-project.com/repo/debian nightly main" | sudo tee /etc/apt/sources.list
- - sudo apt-get update -qq
- - sudo apt-get install mono-snapshot-common
- - sudo apt-get install mono-snapshot-2016.02.18+20.15.33
+ - sudo apt-get install git autoconf libtool automake build-essential gettext
+ - git clone --recursive https://github.com/mono/mono.git
+ - cd mono
+ - ./autogen.sh --prefix=/usr/local
+ - make get-monolite-latest
+ - make
+ - sudo make install
+ - cd ..
 script:
- - ./build.sh
+ - xbuild /p:Configuration=Debug src/dbus-sharp.csproj
