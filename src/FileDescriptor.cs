@@ -23,7 +23,7 @@ namespace DBus
 		//TODO: move this somewhere better
 		public void SetBlocking()
 		{
-			int status = Mono.Unix.Native.Syscall.fcntl(FD
+			Mono.Unix.Native.Syscall.fcntl(FD
 				,Mono.Unix.Native.FcntlCommand.F_SETFL
 				,Mono.Unix.Native.Syscall.fcntl(FD,
 					Mono.Unix.Native.FcntlCommand.F_GETFL,0)
