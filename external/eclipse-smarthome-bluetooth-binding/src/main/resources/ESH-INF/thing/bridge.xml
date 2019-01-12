@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="bluetooth"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:thing="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0"
+    xsi:schemaLocation="http://eclipse.org/smarthome/schemas/thing-description/v1.0.0 http://eclipse.org/smarthome/schemas/thing-description-1.0.0.xsd">
+
+    <bridge-type id="adapter">
+        <label>Bluetooth Adapter</label>
+        <description>This thing represents Bluetooth adapters.</description>
+        <channels>
+            <channel id="discovering" typeId="discovering"/>
+            <channel id="discovering-control" typeId="discovering-control"/>
+            <channel id="last-updated" typeId="last-updated"/>
+        </channels>
+        <config-description-ref uri="thing-type:bluetooth:adapter"/>
+    </bridge-type>
+
+    <channel-type id="discovering">
+        <item-type>Switch</item-type>
+        <label>Discovering</label>
+        <description>Indicates whether bluetooth adapter is in discovering state</description>
+        <state readOnly="true"/>
+    </channel-type>
+
+    <channel-type id="discovering-control">
+        <item-type>Switch</item-type>
+        <label>Discovering control</label>
+        <description>Controls whether bluetooth adapter is in discovering state</description>
+    </channel-type>
+
+</thing:thing-descriptions>

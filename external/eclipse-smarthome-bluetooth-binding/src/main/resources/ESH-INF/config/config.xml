@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config-description:config-descriptions
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:config-description="http://eclipse.org/smarthome/schemas/config-description/v1.0.0"
+        xsi:schemaLocation="http://eclipse.org/smarthome/schemas/config-description/v1.0.0 http://eclipse.org/smarthome/schemas/config-description-1.0.0.xsd">
+
+    <config-description uri="thing-type:bluetooth:dedicated">
+        <parameter-group name="presence-detection">
+            <label>Presence detection</label>
+            <description>Presence detection parameters</description>
+        </parameter-group>
+        <parameter-group name="indoor-positioning-system">
+            <label>Indoor positioning system</label>
+            <description>Indoor positioning system parameters</description>
+        </parameter-group>
+
+        <parameter name="onlineTimeout" type="integer" min="0" unit="s" groupName="presence-detection">
+            <label>Online timeout</label>
+            <description>Bluetooth devices not showing any activity are considered to be offline after exceeding
+                this timeout (seconds).</description>
+        </parameter>
+
+        <parameter name="rssiFilterType" type="text" groupName="indoor-positioning-system">
+            <label>Received signal strength indication (RSSI) filter</label>
+            <description>RSSI filter removes noise and spikes from RSSI in order to allow for better estimation
+                of bluetooth device position relative to bluetooth adapters. A downside of applying RSSI filter is
+                introducing some latency in changing RSSI value. For example, if a strong (slow) filter is applied,
+                then the filtered RSSI curve follows the real RSSI readings with a delay. If a weak (fast) filter is applied,
+                then the filtered RSSI curve becomes more responsive, but gains more spikes (noise).
+            </description>
+            <default>MODERATE</default>
+            <options>
+                <option value="NONE">None</option>
+                <option value="FAST">Fast (less latency, more spikes)</option>
+                <option value="MODERATE">Moderate (medium latency, medium spikes)</option>
+                <option value="SLOW">Slow (more latency, less spikes</option>
+            </options>
+            <required>true</required>
+        </parameter>
+
+        <parameter name="txPowerMeasured" type="integer" max="0" min="-120" groupName="indoor-positioning-system">
+            <label>Measured transmit power (Tx Power)</label>
+            <description><![CDATA[Measured/estimated (user defined) Tx power of the device that is measured 1 meter away from the adapter (RSSI value).
+                <br/>This parameter is used in distance estimation between the device and an adapter. If it is set to 0 (or omitted) and:
+                <ul>
+                    <li>If the device advertises its Tx Power (e.g. beacon devices), then the advertised Tx Power is used.</li>
+                    <li>If the device does not advertise its Tx Power, then the defaul Tx Power value is used: -60.</li>
+                </ul>
+                 ]]>
+            </description>
+        </parameter>
+
+    </config-description>
+
+    <config-description uri="thing-type:bluetooth:combined">
+        <parameter-group name="connection">
+            <label>Connection</label>
+            <description>Connection parameters</description>
+        </parameter-group>
+        <parameter-group name="authentication">
+            <label>Authentication</label>
+            <description>Authentication parameters</description>
+        </parameter-group>
+        <parameter-group name="presence-detection">
+            <label>Presence detection</label>
+            <description>Presence detetion parameters</description>
+        </parameter-group>
+        <parameter-group name="indoor-positioning-system">
+            <label>Indoor positioning system</label>
+            <description>Indoor positioning system parameters</description>
+        </parameter-group>
+
+        <parameter name="onlineTimeout" type="integer" min="0" unit="s" groupName="presence-detection">
+            <label>Online timeout</label>
+            <description>Bluetooth devices not showing any activity are considered to be offline after exceeding
+                this timeout (seconds).</description>
+        </parameter>
+
+        <parameter name="preventLocationUpdate" type="boolean" groupName="indoor-positioning-system">
+            <label>Prevent location update</label>
+            <description>If selected, device location does not get updated. Useful when the Indoor Positioning system
+                struggles to determine location of a device that is equally spaced between multiple adapters.
+                The location is manually defined by user.
+            </description>
+            <default>false</default>
+        </parameter>
+
+        <parameter name="rssiFilterType" type="text" groupName="indoor-positioning-system">
+            <label>Received signal strength indication (RSSI) filter</label>
+            <description>RSSI filter removes noise and spikes from RSSI in order to allow for better estimation
+                of bluetooth device position relative to bluetooth adapters. A downside of applying RSSI filter is
+                introducing some latency in changing RSSI value. For example, if a strong (slow) filter is applied,
+                then the filtered RSSI curve follows the real RSSI readings with a delay. If a weak (fast) filter is applied,
+                then the filtered RSSI curve becomes more responsive, but gains more spikes (noise).
+            </description>
+            <default>MODERATE</default>
+            <options>
+                <option value="NONE">None</option>
+                <option value="FAST">Fast (less latency, more spikes)</option>
+                <option value="MODERATE">Moderate (medium latency, medium spikes)</option>
+                <option value="SLOW">Slow (more latency, less spikes)</option>
+                <option value="VERY_SLOW">Very slow (used for stationary devices)</option>
+            </options>
+            <required>true</required>
+        </parameter>
+
+        <parameter name="txPowerMeasured" type="integer" max="0" min="-120" groupName="indoor-positioning-system">
+            <label>Measured transmit power (Tx Power)</label>
+            <description><![CDATA[Measured/estimated (user defined) Tx power of the device that is measured 1 meter away from the adapter (RSSI value).
+                <br/>This parameter is used in distance estimation between the device and an adapter. If it is set to 0 (or omitted) and:
+                <ul>
+                    <li>If the device advertises its Tx Power (e.g. beacon devices), then the advertised Tx Power is used.</li>
+                    <li>If the device does not advertise its Tx Power, then the defaul Tx Power value is used: -60.</li>
+                </ul>
+                 ]]>
+            </description>
+        </parameter>
+
+        <parameter name="connectionStrategy" type="text" groupName="connection">
+            <label>Connection strategy</label>
+            <description><![CDATA[Connection strategy to be used when device "connection control" is enabled. The following strategies are supported:
+                    <ul>
+                        <li>Nearest adapter: the nearest adapter is selected automatically.
+                        <br/>&nbsp;&nbsp;&nbsp;&nbsp;Note: the selected adapter won't be changed while the device is connected even if the selected adapter is no longer the nearest. If disconnected, a new nearest adapter might be selected.</li>
+                        <li>Preferred adapter: adapter is specified by user.</li>
+                    </ul>
+                ]]>
+            </description>
+            <default>NEAREST_ADAPTER</default>
+            <options>
+                <option value="NEAREST_ADAPTER">Nearest adapter</option>
+                <option value="PREFERRED_ADAPTER">Preferred adapter</option>
+            </options>
+            <required>true</required>
+        </parameter>
+
+        <parameter name="preferredBluetoothAdapter" type="text" groupName="connection" pattern="^(\w\w:){5}\w\w$" multiple="false">
+            <label>Preferred adapter</label>
+            <description>Note: it is used only when "Preferred adapter" connection strategy is selected.</description>
+            <required>false</required>
+            <limitToOptions>false</limitToOptions>
+        </parameter>
+
+        <parameter name="authenticationStrategy" type="text" groupName="authentication">
+            <label>Authentication strategy</label>
+            <description><![CDATA[Authentication strategy to be used when device "connection control" is enabled. The following strategies are supported:
+                    <ul>
+                        <li>None: authentication is not performed.</li>
+                        <li>Auto: authentication is performed automatically based on GATT specification.</li>
+                        <li>Pin code: pin code is entered by user. See "Pin code" parameter.</li>
+                    </ul>
+                ]]>
+            </description>
+            <default>AUTOMATIC</default>
+            <options>
+                <option value="NONE">None</option>
+                <option value="AUTO">Auto</option>
+                <option value="PIN_CODE">Pin code</option>
+            </options>
+            <default>AUTO</default>
+            <required>true</required>
+        </parameter>
+
+        <parameter name="pinCodeDefinition" type="text" groupName="authentication" pattern="^([0-9A-Fa-f]{4,8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})=((\d+)|(\[[0-9A-Fa-f]{2}(,\s?[0-9A-Fa-f]{2}){0,19}\]))$">
+            <label>Pin code</label>
+            <description><![CDATA[Device pin code definition in the following format: characteristic UUID=pin code. For example:
+                    <ul>
+                        <li>decimal number: 0000eee3-0000-1000-8000-00805f9b34fb=7638516547981525249</li>
+                        <li>hex array: 0000eee3-0000-1000-8000-00805f9b34fb=[01, c1, 61, 6d, 54, 76, 01, 6a]</li>
+                    </ul>
+                ]]>
+            </description>
+            <required>false</required>
+        </parameter>
+
+    </config-description>
+
+    <config-description uri="thing-type:bluetooth:adapter">
+        <parameter-group name="indoor-positioning-system">
+            <label>Indoor positioning</label>
+            <description>Indoor positioning parameters</description>
+        </parameter-group>
+        <parameter name="signalPropagationExponent" type="decimal" max="2" min="4" groupName="indoor-positioning-system">
+            <label>Signal propagation exponent</label>
+            <description>Estimated (user defined) signal propagation exponent. This parameter is used in distance estimation between the adapter and bluetooth devices.
+                This factor is specific to the surrounding environment, i.e. how efficient the signal passes through obstacles on its way.
+            </description>
+            <options>
+                <option value="2.0">Outdoors, no obstacles</option>
+                <option value="3.0">Indoors, moderate obstacles</option>
+                <option value="4.0">Indoors, walls and furniture</option>
+            </options>
+            <default>4.0</default>
+            <required>true</required>
+        </parameter>
+    </config-description>
+
+</config-description:config-descriptions>
