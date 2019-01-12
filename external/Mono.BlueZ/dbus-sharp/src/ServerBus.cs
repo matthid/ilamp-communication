@@ -10,7 +10,12 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 
+
+/*
+  This file was not part of the original solution when porting to dotnet core
+
 using DBus.Transports;
+using DBus.Protocol;
 using org.freedesktop.DBus;
 
 namespace DBus
@@ -577,13 +582,13 @@ namespace DBus
 				//Server.Bus.RemoveConnection (this);
 				//ServerBus sbus = Unregister (new ObjectPath ("/org/freedesktop/DBus")) as ServerBus;
 
-				/*
-				ServerBus sbus = Unregister (new ObjectPath ("/org/freedesktop/DBus")) as ServerBus;
-				Register (new ObjectPath ("/org/freedesktop/DBus"), sbus);
-				sbus.RemoveConnection (this);
-				*/
 
-				Server.SBus.RemoveConnection (this);
+				//ServerBus sbus = Unregister (new ObjectPath ("/org/freedesktop/DBus")) as ServerBus;
+				//Register (new ObjectPath ("/org/freedesktop/DBus"), sbus);
+				//sbus.RemoveConnection (this);
+
+
+Server.SBus.RemoveConnection (this);
 
 				//Server.ConnectionLost (this);
 				return;
@@ -627,16 +632,14 @@ namespace DBus
 			if (!isConnected)
 				return 0;
 
-			/*
-			if (msg.Header.MessageType == DBus.MessageType.Signal) {
-				Signal signal = new Signal (msg);
-				if (signal.Member == "NameAcquired" || signal.Member == "NameLost") {
-					string dest = (string)msg.Header[FieldCode.Destination];
-					if (dest != UniqueName)
-						return 0;
-				}
-			}
-			*/
+			//if (msg.Header.MessageType == DBus.MessageType.Signal) {
+			//	Signal signal = new Signal (msg);
+			//	if (signal.Member == "NameAcquired" || signal.Member == "NameLost") {
+			//		string dest = (string)msg.Header[FieldCode.Destination];
+			//		if (dest != UniqueName)
+			//			return 0;
+			//	}
+			//}
 
 			if (msg.Header.MessageType != DBus.MessageType.MethodReturn) {
 				msg.Header[FieldCode.Sender] = ServerBus.DBusBusName;
@@ -713,3 +716,4 @@ namespace DBus
 		}
 	}
 }
+*/

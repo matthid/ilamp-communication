@@ -1,62 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{443FB2F2-4F16-4C60-9B37-614B609F119E}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>Mono.BlueZ.Console</RootNamespace>
-    <AssemblyName>Mono.BlueZ.Console</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <ApplicationIcon />
+    <StartupObject />
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Externalconsole>true</Externalconsole>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Externalconsole>true</Externalconsole>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="System" />
+    <ProjectReference Include="..\dbus-sharp\src\dbus-sharp.csproj" />
+    <ProjectReference Include="..\Mono.BlueZ.DBus\Mono.BlueZ.DBus.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Program.cs">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Compile>
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="DemoProfile.cs" />
-    <Compile Include="DemoAgent.cs" />
-    <Compile Include="PebbleBootstrap.cs" />
-    <Compile Include="BlendMicroBootstrap.cs" />
-    <Compile Include="GattServer.cs" />
-    <Compile Include="TestCharacteristic.cs" />
-    <Compile Include="TestDescriptor.cs" />
-    <Compile Include="TestService.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <ItemGroup>
-    <ProjectReference Include="..\Mono.BlueZ\Mono.BlueZ.csproj">
-      <Project>{204FAAAD-B023-4C0A-875D-BFCBEE8E58B8}</Project>
-      <Name>Mono.BlueZ</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Mono.BlueZ.DBus\Mono.BlueZ.DBus.csproj">
-      <Project>{68E6EB3B-4076-48F6-9EB6-1181057C0977}</Project>
-      <Name>Mono.BlueZ.DBus</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\dbus-sharp\src\dbus-sharp.csproj">
-      <Project>{09A0200F-F3AF-4BD6-9EC4-E7D80D273E4C}</Project>
-      <Name>dbus-sharp</Name>
-    </ProjectReference>
-  </ItemGroup>
+
 </Project>

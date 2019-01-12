@@ -4,6 +4,9 @@
 
 using System;
 using System.Reflection;
+/*
+Needs to implement https://stackoverflow.com/questions/38467753/realproxy-in-dotnet-core
+
 using System.Runtime.Remoting.Proxies;
 using System.Runtime.Remoting.Messaging;
 
@@ -72,3 +75,4 @@ namespace DBus
 		}
 	}
 }
+*/

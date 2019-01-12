@@ -10,6 +10,8 @@ using System.Text;
 
 using DBus;
 using DBus.Unix;
+/*
+  This file was not part of the original solution when porting to dotnet core
 
 public class DBusDaemon
 {
@@ -24,12 +26,10 @@ public class DBusDaemon
 			string arg = args[i];
 			//Console.Error.WriteLine ("arg: " + arg);
 
-			/*
-			if (!arg.StartsWith ("--")) {
-				addr = arg;
-				continue;
-			}
-			*/
+			//if (!arg.StartsWith ("--")) {
+			//	addr = arg;
+			//	continue;
+			//}
 
 			if (arg.StartsWith ("--print-")) {
 				string[] parts = arg.Split('=');
@@ -95,11 +95,9 @@ public class DBusDaemon
 			}
 		}
 
-		/*
-		if (args.Length >= 1) {
-				addr = args[0];
-		}
-		*/
+		//if (args.Length >= 1) {
+		//		addr = args[0];
+		//}
 
 		int childPid;
 		if (shouldFork) {
@@ -114,12 +112,10 @@ public class DBusDaemon
 				string arg = args[i];
 				//Console.Error.WriteLine ("arg: " + arg);
 
-				/*
-				if (!arg.StartsWith ("--")) {
-					addr = arg;
-					continue;
-				}
-				*/
+				//if (!arg.StartsWith ("--")) {
+				//	addr = arg;
+				//	continue;
+				//}
 
 				if (arg.StartsWith ("--print-")) {
 					string[] parts = arg.Split ('=');
@@ -166,11 +162,9 @@ public class DBusDaemon
 		//if (shouldFork && childPid == 0) {
 		if (shouldFork) {
 
-			/*
-			Console.In.Dispose ();
-			Console.Out.Dispose ();
-			Console.Error.Dispose ();
-			*/
+			//Console.In.Dispose ();
+			//Console.Out.Dispose ();
+			//Console.Error.Dispose ();
 
 
 			int O_RDWR = 2;
@@ -220,3 +214,5 @@ public class DBusDaemon
 #endif
 	}
 }
+
+*/

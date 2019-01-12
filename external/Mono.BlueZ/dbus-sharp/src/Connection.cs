@@ -414,9 +414,11 @@ namespace DBus
 				if (ProtocolInformation.Verbose)
 					Console.Error.WriteLine ("Warning: Note that MarshalByRefObject use is not recommended; for best performance, define interfaces");
 
-				BusObject busObject = new BusObject (this, bus_name, path);
-				DProxy prox = new DProxy (busObject, type);
-				return prox.GetTransparentProxy ();
+                // See https://stackoverflow.com/a/48150664/1269722
+                throw new NotImplementedException("Please use interfaces as DProxy doesn't work on netcore and needs to be re-implemented");
+				//BusObject busObject = new BusObject (this, bus_name, path);
+				//DProxy prox = new DProxy (busObject, type);
+				//return prox.GetTransparentProxy ();
 			}
 		}
 

@@ -1,73 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{68E6EB3B-4076-48F6-9EB6-1181057C0977}</ProjectGuid>
     <OutputType>Library</OutputType>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>Mono.BlueZ.DBus</RootNamespace>
-    <AssemblyName>Mono.BlueZ.DBus</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <ReleaseVersion></ReleaseVersion>
-    <SynchReleaseVersion>false</SynchReleaseVersion>
+    <ApplicationIcon />
+    <StartupObject />
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <ConsolePause>false</ConsolePause>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release</OutputPath>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <ConsolePause>false</ConsolePause>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="System" />
+    <ProjectReference Include="..\dbus-sharp\src\dbus-sharp.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SimpleObjectManager.cs" />
-    <Compile Include="AgentManager1.cs" />
-    <Compile Include="Alert1.cs" />
-    <Compile Include="HealthManager1.cs" />
-    <Compile Include="ProfileManager1.cs" />
-    <Compile Include="Adapter1.cs" />
-    <Compile Include="CyclingSpeedManager1.cs" />
-    <Compile Include="HeartRateManager1.cs" />
-    <Compile Include="Media1.cs" />
-    <Compile Include="NetworkServer1.cs" />
-    <Compile Include="ThermometerManager1.cs" />
-    <Compile Include="Device1.cs" />
-    <Compile Include="MediaControl1.cs" />
-    <Compile Include="Profile1.cs" />
-    <Compile Include="GattService1.cs" />
-    <Compile Include="GattCharacteristic1.cs" />
-    <Compile Include="GattDescriptor1.cs" />
-    <Compile Include="GattProfile1.cs" />
-    <Compile Include="GattManager1.cs" />
-    <Compile Include="LEAdvertisingManager1.cs" />
-    <Compile Include="LEAdvertisement1.cs" />
-    <Compile Include="Agent1.cs" />
-    <Compile Include="DBusConnection.cs" />
-    <Compile Include="BlueZPath.cs" />
-    <Compile Include="Application.cs" />
-    <Compile Include="Characteristic.cs" />
-    <Compile Include="Descriptor.cs" />
-    <Compile Include="Service.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <ItemGroup>
-    <ProjectReference Include="..\dbus-sharp\src\dbus-sharp.csproj">
-      <Project>{09A0200F-F3AF-4BD6-9EC4-E7D80D273E4C}</Project>
-      <Name>dbus-sharp</Name>
-    </ProjectReference>
-  </ItemGroup>
+
 </Project>

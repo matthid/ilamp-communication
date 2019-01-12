@@ -8,6 +8,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
+/*
+  This file was not part of the original solution when porting to dotnet core
+
 #if ENABLE_PIPES
 using System.IO.Pipes;
 #endif
@@ -17,6 +20,7 @@ namespace DBus
 	using Unix;
 	using Transports;
 	using Authentication;
+    using Protocol;
 
 	//TODO: complete this class
 	abstract class Server
@@ -48,13 +52,11 @@ namespace DBus
 
 			return null;
 
-			/*
-			server.address = address;
-
-			server.Id = entry.GUID;
-			if (server.Id == UUID.Zero)
-				server.Id = UUID.Generate ();
-			*/
+			//server.address = address;
+            //
+			//server.Id = entry.GUID;
+			//if (server.Id == UUID.Zero)
+			//	server.Id = UUID.Generate ();
 		}
 
 		public abstract void Listen ();
@@ -118,11 +120,9 @@ namespace DBus
 				entry.GUID = UUID.Generate ();
 			Id = entry.GUID;
 
-			/*
-			Id = entry.GUID;
-			if (Id == UUID.Zero)
-				Id = UUID.Generate ();
-			*/
+			//Id = entry.GUID;
+			//if (Id == UUID.Zero)
+			//	Id = UUID.Generate ();
 
 			this.address = entry.ToString ();
 			//Console.WriteLine ("Server address: " + Address);
@@ -200,12 +200,11 @@ namespace DBus
 					NewConnection (conn);
 
 				//BusG.Init (conn);
-				/*
-				conn.Iterate ();
-				Console.WriteLine ("done iter");
-				BusG.Init (conn);
-				Console.WriteLine ("done init");
-				*/
+
+				//conn.Iterate ();
+				//Console.WriteLine ("done iter");
+				//BusG.Init (conn);
+				//Console.WriteLine ("done init");
 
 				//GLib.Idle.Add (delegate { BusG.Init (conn); return false; });
 	#if USE_GLIB
@@ -221,11 +220,9 @@ namespace DBus
 			}
 		}
 
-		/*
-		public void ConnectionLost (Connection conn)
-		{
-		}
-		*/
+		//public void ConnectionLost (Connection conn)
+		//{
+		//}
 
 		public override event Action<Connection> NewConnection;
 	}
@@ -249,11 +246,9 @@ namespace DBus
 				entry.GUID = UUID.Generate ();
 			Id = entry.GUID;
 
-			/*
-			Id = entry.GUID;
-			if (Id == UUID.Zero)
-				Id = UUID.Generate ();
-			*/
+			//Id = entry.GUID;
+			//if (Id == UUID.Zero)
+			//	Id = UUID.Generate ();
 
 			this.address = entry.ToString ();
 			//Console.WriteLine ("Server address: " + Address);
@@ -315,11 +310,11 @@ namespace DBus
 			while (true) {
 				//Console.WriteLine ("Waiting for client on TCP port " + port);
 				TcpClient client = server.AcceptTcpClient ();
-				/*
-				client.NoDelay = true;
-				client.ReceiveBufferSize = (int)Protocol.MaxMessageLength;
-				client.SendBufferSize = (int)Protocol.MaxMessageLength;
-				*/
+
+				//client.NoDelay = true;
+				//client.ReceiveBufferSize = (int)Protocol.MaxMessageLength;
+				//client.SendBufferSize = (int)Protocol.MaxMessageLength;
+
 				//Console.WriteLine ("Client connected");
 
 				ServerConnection conn;
@@ -338,12 +333,11 @@ namespace DBus
 					NewConnection (conn);
 
 				//BusG.Init (conn);
-				/*
-				conn.Iterate ();
-				Console.WriteLine ("done iter");
-				BusG.Init (conn);
-				Console.WriteLine ("done init");
-				*/
+
+				//conn.Iterate ();
+				//Console.WriteLine ("done iter");
+				//BusG.Init (conn);
+				//Console.WriteLine ("done init");
 
 				//GLib.Idle.Add (delegate { BusG.Init (conn); return false; });
 	#if USE_GLIB
@@ -358,11 +352,10 @@ namespace DBus
 			}
 		}
 
-		/*
-		public void ConnectionLost (Connection conn)
-		{
-		}
-		*/
+
+		//public void ConnectionLost (Connection conn)
+		//{
+		//}
 
 		public override event Action<Connection> NewConnection;
 	}
@@ -392,11 +385,11 @@ namespace DBus
 				entry.GUID = UUID.Generate ();
 			Id = entry.GUID;
 
-			/*
-			Id = entry.GUID;
-			if (Id == UUID.Zero)
-				Id = UUID.Generate ();
-			*/
+
+			//Id = entry.GUID;
+			//if (Id == UUID.Zero)
+			//	Id = UUID.Generate ();
+
 
 			this.address = entry.ToString ();
 			Console.WriteLine ("Server address: " + Address);
@@ -491,13 +484,14 @@ namespace DBus
 			}
 		}
 
-		/*
-		public void ConnectionLost (Connection conn)
-		{
-		}
-		*/
+
+		//public void ConnectionLost (Connection conn)
+		//{
+		//}
 
 		public override event Action<Connection> NewConnection;
 	}
 #endif
 }
+
+*/
