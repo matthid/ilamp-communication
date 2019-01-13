@@ -96,7 +96,8 @@ namespace DBus
 
 		protected override bool CheckBusNameExists (string busName)
 		{
-			if (busName == DBusName)
+		    Console.WriteLine($"Bus.CheckBusNameExists {busName}");
+            if (busName == DBusName)
 				return true;
 			return NameHasOwner (busName);
 		}

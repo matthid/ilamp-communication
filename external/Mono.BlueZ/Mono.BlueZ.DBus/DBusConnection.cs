@@ -61,6 +61,7 @@ namespace Mono.BlueZ.DBus
 			} 
 			catch (Exception ex) 
 			{
+                Console.WriteLine($"Error in DBusLoop: {ex}");
 				_startupException = ex;
 				return;
 			} 

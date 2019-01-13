@@ -10,4 +10,10 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\external\Mono.BlueZ\dbus-sharp\src\dbus-sharp.csproj" />
+    <ProjectReference Include="..\external\Mono.BlueZ\Mono.BlueZ.DBus\Mono.BlueZ.DBus.csproj" />
+    <ProjectReference Include="..\external\Mono.BlueZ\Mono.BlueZ\Mono.BlueZ.csproj" />
+  </ItemGroup>
+
 </Project>

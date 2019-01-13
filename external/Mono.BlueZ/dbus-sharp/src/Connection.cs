@@ -403,15 +403,20 @@ namespace DBus
 
 		public object GetObject (Type type, string bus_name, ObjectPath path)
 		{
-			if (!CheckBusNameExists (bus_name))
+		    Console.WriteLine($"Connection.GetObject {type.FullName}");
+            if (!CheckBusNameExists (bus_name))
 				return null;
 
-			//if the requested type is an interface, we can implement it efficiently
-			//otherwise we fall back to using a transparent proxy
-			if (type.IsInterface || type.IsAbstract) {
-				return BusObject.GetObject (this, bus_name, path, type);
-			} else {
-				if (ProtocolInformation.Verbose)
+            //if the requested type is an interface, we can implement it efficiently
+            //otherwise we fall back to using a transparent proxy
+            if (type.IsInterface || type.IsAbstract)
+			{
+			    Console.WriteLine($"Connection.GetObject calling BusObject.GetObject");
+                return BusObject.GetObject (this, bus_name, path, type);
+			} else
+			{
+			    Console.WriteLine($"Connection.GetObject not implemented..");
+                if (ProtocolInformation.Verbose)
 					Console.Error.WriteLine ("Warning: Note that MarshalByRefObject use is not recommended; for best performance, define interfaces");
 
                 // See https://stackoverflow.com/a/48150664/1269722

@@ -232,10 +232,13 @@ namespace DBus
 
 		public static object GetObject (Connection conn, string bus_name, ObjectPath object_path, Type declType)
 		{
+            Console.WriteLine($"BusObject.GetObject {declType.FullName}");
 			Type proxyType = TypeImplementer.Root.GetImplementation (declType);
 
-			object instObj = Activator.CreateInstance (proxyType);
-			BusObject inst = GetBusObject (instObj);
+		    Console.WriteLine("BusObject.GetObject CreateInstance");
+            object instObj = Activator.CreateInstance (proxyType);
+		    Console.WriteLine("BusObject.GetObject GetBusObject");
+            BusObject inst = GetBusObject (instObj);
 			inst.conn = conn;
 			inst.bus_name = bus_name;
 			inst.object_path = object_path;
