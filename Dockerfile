@@ -3,7 +3,7 @@ FROM ubuntu:18.04
 RUN apt-get update && \
     apt-get install -y \
         gnupg2 ca-certificates software-properties-common apt-transport-https wget \
-        bluez bluetooth usbutils screen sudo libasound2 && \
+        bluez bluetooth usbutils screen sudo libasound2 git && \
     apt-key adv --keyserver packages.microsoft.com --recv-keys EB3E94ADBE1229CF && \
     apt-key adv --keyserver packages.microsoft.com --recv-keys 52E16F86FEE04B979B07E28DB02C46DF417A0893 && \
     sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-bionic-prod bionic main" > /etc/apt/sources.list.d/dotnetdev.list' && \
