@@ -8,7 +8,7 @@ using Tmds.DBus;
 namespace bluez.DBus
 {
     [DBusInterface("org.freedesktop.DBus.ObjectManager")]
-    interface IObjectManager : IDBusObject
+    public interface IObjectManager : IDBusObject
     {
         Task<IDictionary<ObjectPath, IDictionary<string, IDictionary<string, object>>>> GetManagedObjectsAsync();
         Task<IDisposable> WatchInterfacesAddedAsync(Action<(ObjectPath @object, IDictionary<string, IDictionary<string, object>> interfaces)> handler, Action<Exception> onError = null);
@@ -16,7 +16,7 @@ namespace bluez.DBus
     }
 
     [DBusInterface("org.bluez.AgentManager1")]
-    interface IAgentManager1 : IDBusObject
+    public interface IAgentManager1 : IDBusObject
     {
         Task RegisterAgentAsync(ObjectPath Agent, string Capability);
         Task UnregisterAgentAsync(ObjectPath Agent);
@@ -24,14 +24,14 @@ namespace bluez.DBus
     }
 
     [DBusInterface("org.bluez.ProfileManager1")]
-    interface IProfileManager1 : IDBusObject
+    public interface IProfileManager1 : IDBusObject
     {
         Task RegisterProfileAsync(ObjectPath Profile, string UUID, IDictionary<string, object> Options);
         Task UnregisterProfileAsync(ObjectPath Profile);
     }
 
     [DBusInterface("org.bluez.Adapter1")]
-    interface IAdapter1 : IDBusObject
+    public interface IAdapter1 : IDBusObject
     {
         Task StartDiscoveryAsync();
         Task SetDiscoveryFilterAsync(IDictionary<string, object> Properties);
@@ -45,7 +45,7 @@ namespace bluez.DBus
     }
 
     [Dictionary]
-    class Adapter1Properties
+    public class Adapter1Properties
     {
         private string _Address = default (string);
         public string Address
@@ -230,7 +230,7 @@ namespace bluez.DBus
         }
     }
 
-    static class Adapter1Extensions
+    static public class Adapter1Extensions
     {
         public static Task<string> GetAddressAsync(this IAdapter1 o) => o.GetAsync<string>("Address");
         public static Task<string> GetAddressTypeAsync(this IAdapter1 o) => o.GetAsync<string>("AddressType");
@@ -254,14 +254,14 @@ namespace bluez.DBus
     }
 
     [DBusInterface("org.bluez.GattManager1")]
-    interface IGattManager1 : IDBusObject
+    public interface IGattManager1 : IDBusObject
     {
         Task RegisterApplicationAsync(ObjectPath Application, IDictionary<string, object> Options);
         Task UnregisterApplicationAsync(ObjectPath Application);
     }
 
     [DBusInterface("org.bluez.LEAdvertisingManager1")]
-    interface ILEAdvertisingManager1 : IDBusObject
+    public interface ILEAdvertisingManager1 : IDBusObject
     {
         Task RegisterAdvertisementAsync(ObjectPath Advertisement, IDictionary<string, object> Options);
         Task UnregisterAdvertisementAsync(ObjectPath Service);
@@ -272,7 +272,7 @@ namespace bluez.DBus
     }
 
     [Dictionary]
-    class LEAdvertisingManager1Properties
+    public class LEAdvertisingManager1Properties
     {
         private byte _ActiveInstances = default (byte);
         public byte ActiveInstances
@@ -317,7 +317,7 @@ namespace bluez.DBus
         }
     }
 
-    static class LEAdvertisingManager1Extensions
+    static public class LEAdvertisingManager1Extensions
     {
         public static Task<byte> GetActiveInstancesAsync(this ILEAdvertisingManager1 o) => o.GetAsync<byte>("ActiveInstances");
         public static Task<byte> GetSupportedInstancesAsync(this ILEAdvertisingManager1 o) => o.GetAsync<byte>("SupportedInstances");
@@ -325,7 +325,7 @@ namespace bluez.DBus
     }
 
     [DBusInterface("org.bluez.Media1")]
-    interface IMedia1 : IDBusObject
+    public interface IMedia1 : IDBusObject
     {
         Task RegisterEndpointAsync(ObjectPath Endpoint, IDictionary<string, object> Properties);
         Task UnregisterEndpointAsync(ObjectPath Endpoint);
@@ -334,14 +334,14 @@ namespace bluez.DBus
     }
 
     [DBusInterface("org.bluez.NetworkServer1")]
-    interface INetworkServer1 : IDBusObject
+    public interface INetworkServer1 : IDBusObject
     {
         Task RegisterAsync(string Uuid, string Bridge);
         Task UnregisterAsync(string Uuid);
     }
 
     [DBusInterface("org.bluez.Device1")]
-    interface IDevice1 : IDBusObject
+    public interface IDevice1 : IDBusObject
     {
         Task DisconnectAsync();
         Task ConnectAsync();
@@ -356,7 +356,7 @@ namespace bluez.DBus
     }
 
     [Dictionary]
-    class Device1Properties
+    public class Device1Properties
     {
         private string _Address = default (string);
         public string Address
@@ -639,7 +639,7 @@ namespace bluez.DBus
         }
     }
 
-    static class Device1Extensions
+    static public class Device1Extensions
     {
         public static Task<string> GetAddressAsync(this IDevice1 o) => o.GetAsync<string>("Address");
         public static Task<string> GetAddressTypeAsync(this IDevice1 o) => o.GetAsync<string>("AddressType");
