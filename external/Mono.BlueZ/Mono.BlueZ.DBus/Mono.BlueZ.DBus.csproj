@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\dbus-sharp\src\dbus-sharp.csproj" />
+    <PackageReference Include="Tmds.DBus" Version="0.7.0" />
+    <DotNetCliToolReference Include="Tmds.DBus.Tool" Version="0.5.0" />
   </ItemGroup>
 
 </Project>
