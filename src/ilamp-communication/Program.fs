@@ -1,8 +1,8 @@
 ﻿// Learn more about F# at http://fsharp.org
 
 open System
-open Mono.BlueZ.DBus
-open DBus
+open bluez.DBus
+open Tmds.DBus
 
 type MyProfile () =
     interface Profile1 with
@@ -18,9 +18,10 @@ let main argv =
     Console.WriteLine("Platform: {0}", Environment.OSVersion.Platform);
 
     printfn "Connecting DBus!"
-
-    let con = new DBusConnection()
+    let con = Connection.System
+    //let con = new DBusConnection()
     printfn "Get ProfileManager!"
+    con.CreateProxy<IObjectManager>("org.bluez", ObjectPath.Root)
     let profileManager = con.System.GetObject<ProfileManager1>("org.bluez", new ObjectPath("/org/bluez"))
 
     printfn "Exiting...!"

@@ -11,9 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\external\Mono.BlueZ\dbus-sharp\src\dbus-sharp.csproj" />
-    <ProjectReference Include="..\external\Mono.BlueZ\Mono.BlueZ.DBus\Mono.BlueZ.DBus.csproj" />
-    <ProjectReference Include="..\external\Mono.BlueZ\Mono.BlueZ\Mono.BlueZ.csproj" />
+    <PackageReference Include="Tmds.DBus" Version="0.7.0" />
+    <ProjectReference Include="..\ilamp-communication.dbus\ilamp-communication.dbus.csproj" />
   </ItemGroup>
 
 </Project>

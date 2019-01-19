@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DBus;
+using Tmds.DBus;
 
 namespace Mono.BlueZ.DBus
 {
