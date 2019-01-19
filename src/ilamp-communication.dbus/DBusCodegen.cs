@@ -228,6 +228,27 @@ namespace bluez.DBus
                 _Modalias = (value);
             }
         }
+
+
+        public IDictionary<string, object> AsDictionary()
+        {
+            return new Dictionary<string, object>()
+            {
+                {nameof(Address), Address},
+                {nameof(AddressType), AddressType},
+                {nameof(Name), Name},
+                {nameof(Alias), Alias},
+                {nameof(Class), Class},
+                {nameof(Powered), Powered},
+                {nameof(Discoverable), Discoverable},
+                {nameof(DiscoverableTimeout), DiscoverableTimeout},
+                {nameof(Pairable), Pairable},
+                {nameof(PairableTimeout), PairableTimeout},
+                {nameof(Discovering), Discovering},
+                {nameof(UUIDs), UUIDs},
+                {nameof(Modalias), Modalias}
+            };
+        }
     }
 
     static public class Adapter1Extensions
@@ -636,6 +657,33 @@ namespace bluez.DBus
             {
                 _ServicesResolved = (value);
             }
+        }
+
+        public IDictionary<string, object> AsDictionary()
+        {
+            return new Dictionary<string, object>()
+            {
+                {nameof(Address), Address},
+                {nameof(AddressType), AddressType},
+                {nameof(Name), Name},
+                {nameof(Alias), Alias},
+                {nameof(Class), Class},
+                {nameof(Appearance), Appearance},
+                {nameof(Icon), Icon},
+                {nameof(Paired), Paired},
+                {nameof(Trusted), Trusted},
+                {nameof(Blocked), Blocked},
+                {nameof(LegacyPairing), LegacyPairing},
+                {nameof(RSSI), RSSI},
+                {nameof(Connected), Connected},
+                {nameof(UUIDs), UUIDs},
+                {nameof(Modalias), Modalias},
+                {nameof(Adapter), Adapter},
+                {nameof(ManufacturerData), ManufacturerData},
+                {nameof(ServiceData), ServiceData},
+                {nameof(TxPower), TxPower},
+                {nameof(ServicesResolved), ServicesResolved},
+            };
         }
     }
 
