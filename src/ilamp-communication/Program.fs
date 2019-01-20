@@ -8,33 +8,20 @@ open Elmish
 open System.Threading
 open System.Collections.Generic
 open System.Threading.Tasks
+open Fable.PowerPack.Keyboard
+open System.Buffers
+open System.Text
 
 (*
 type DemoAgent () =
     interface Agent
     *)
-type MyProfile () =
-    interface IProfile1 with
-        member x.Release() = ()
-        member x.NewConnection(device, fd, properties) =
-            let stream = new FileStream(fd, FileAccess.ReadWrite)
-            stream.Write([| 8uy |], 0, 1)
-            System.Console.WriteLine(sprintf "new connection %O => %A" device properties)
-            ()
-        member x.RequestDisconnection(device) =
-            ()
-
-type ConnectedStream =
-    { Profile : MyProfile
-      Adapter : ObjectPath
-      Device : ObjectPath
-      UUID : string}
 
 type SelectItemType =
     | Device
     | Adapter
     | Stream
-
+    
 type ObjectInfo =
     { Path : ObjectPath
       AdapterProps : Adapter1Properties option
@@ -43,24 +30,105 @@ type ObjectInfo =
     member x.IsAdapter = x.AdapterProps.IsSome
     member x.IsDevice = x.DeviceProps.IsSome
 
-type Message =
+type RentMemory (poolMemory, mem) =
+    member x.Memory = mem
+    member x.Dispose() =
+        ArrayPool.Shared.Return(poolMemory, false)
+    interface IDisposable with
+        member x.Dispose() = x.Dispose()
+
+type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:string, stream:FileStream, p:MyProfile) as x =
+    let tokenSource = new CancellationTokenSource()
+    let startReaderTask (stream:FileStream) (tok:CancellationToken) =
+        async {
+            while not tok.IsCancellationRequested do
+                let rented = ArrayPool.Shared.Rent(4096)
+                let mem = new Memory<byte>(rented)
+                let! read = stream.ReadAsync(mem, tok).AsTask() |> Async.AwaitTask
+                if read > 0 then
+                    dispatch(ReceivedBytes(x, new RentMemory(rented, mem.Slice(0, read))))
+                else
+                    printfn "Error: Read stream finished!"
+                    ()
+
+            stream.Close()
+            stream.Dispose()
+        }
+        |> Async.StartAsTask
+
+    let readerTask = startReaderTask stream tokenSource.Token
+
+    member x.Device = device
+    member x.UUID = uuid
+    member x.Profile = p
+    member x.StartSend (r:RentMemory) =
+        async {
+            try
+                try
+                    do! stream.WriteAsync(Memory.op_Implicit r.Memory).AsTask() |> Async.AwaitTask
+                    dispatch (ShowOk "Sending succeeded!")
+                with e ->
+                    dispatch(ShowError (sprintf "Error while sending data: %A" e))
+            finally
+                r.Dispose()
+        }
+        |> Async.Start
+    member x.Close() =
+        tokenSource.Cancel()
+        readerTask.Wait()
+
+    
+
+and MyProfile (dispatch: Dispatch<Message>, uuid:string) =
+    let connections = ResizeArray<ProfileConnection>()
+    let path =  ObjectPath ("/ilamp/myprofile/" + uuid.Replace("-", ""))
+    member x.ObjectPath = path
+    interface IProfile1 with
+        member x.ReleaseAsync() = Task.CompletedTask
+        member x.NewConnectionAsync(device, fd, properties) =
+            dispatch (ShowProgress (sprintf "new connection %O => %A" device properties))
+            let con = new ProfileConnection(dispatch, device, uuid, new FileStream(fd, FileAccess.ReadWrite), x)
+            connections.Add(con)
+            dispatch (NewConnectedStream(con))
+            Task.CompletedTask
+        member x.RequestDisconnectionAsync(device) =
+            dispatch (ShowProgress (sprintf "connection closed %O" device))
+            for d in connections.FindAll(fun con -> con.Device = device) do
+                dispatch(DisconnectedStream(d))
+                d.Close()
+            connections.RemoveAll(fun con -> con.Device = device) |> ignore
+            Task.CompletedTask
+    interface IDBusObject with
+        member x.ObjectPath = x.ObjectPath
+
+    member x.TryFindConnection device =
+        let results =
+            connections.FindAll(fun con -> con.Device = device)
+            |> Seq.toList
+        if results.Length > 1 then failwithf "expected only one connection but found %d streams for %O" results.Length device
+        results |> List.tryHead
+
+and Message =
     | PrepareList of SelectItemType
     | PrepareDetails of SelectItemType
     | SelectAdapter of ObjectPath
     | SelectDevice of ObjectPath
-    | SelectStream of ConnectedStream
+    | SelectStream of ProfileConnection
+    | NewConnectedStream of ProfileConnection
+    | DisconnectedStream of ProfileConnection
     | ConnectDevice
     | PairDevice
-    | ConnectProfileStream of uuid:string // selected device
+    | ConnectProfileStream of uuidPrefix:string // selected device
     | UpdateDeviceProperties of ObjectPath * Device1Properties
     | ListAdapterProperties of ObjectPath
     | UserInput of string
-    | SendBytes of byte[]
-    | ReceivedBytes of ConnectedStream * byte[]
+    | SendBytes of RentMemory
+    | ReceivedBytes of ProfileConnection * RentMemory
     | StartDiscover
     | ObjectConnected of ObjectInfo
     | ObjectDisconnected of ObjectPath
     | ConnectedDBus of IObjectManager * ObjectInfo list
+    | ProfileRegistered of string * MyProfile
 
     // Outputs
     | ShowOk of string
@@ -77,10 +145,11 @@ type Message =
 type Model =
     { ObjectManager : IObjectManager option
       AvailableObjects : ObjectInfo[]
-      AvailableStreams : ConnectedStream[]
+      DBusConnectedProfiles : Map<string, MyProfile>
+      AvailableStreams : ProfileConnection[]
       SelectedAdapter : ObjectPath option
       SelectedDevice : ObjectPath option
-      SelectedStream : ConnectedStream option
+      SelectedStream : ProfileConnection option
       PreviousModel : (Message * Model) option }
     member x.TryFindDevice (path:ObjectPath) =
         x.AvailableObjects |> Seq.tryFind (fun o -> o.IsDevice && o.Path = path)
@@ -103,7 +172,10 @@ type Model =
             |> Option.orElse (Some (s, None))
 
 let applicationExit = new CancellationTokenSource()
-let dbusBus = Connection.System
+
+
+let isServer, dbusBus = true, new Connection(Address.System)
+// let isServer, dbusBus = false, Connection.System
 let bluezName = "org.bluez"
 
 let readInputs (dispatch:Dispatch<Message>) =
@@ -203,6 +275,10 @@ let getDevice key (kv:IDictionary<_,IDictionary<_,obj>>) =
 
 let connectInterface (dispatch:Dispatch<Message>) =
     async {
+        if isServer then
+            let! c = dbusBus.ConnectAsync() |> Async.AwaitTask
+            ignore c
+
         let manager = dbusBus.CreateProxy<IObjectManager>(bluezName, ObjectPath.Root)
         let! d =
             manager.WatchInterfacesAddedAsync(
@@ -261,6 +337,58 @@ let getDeviceProperties (p:ObjectPath) (dispatch:Dispatch<Message>) =
             dispatch (ShowError (sprintf "Device connection failed: %A" e))
     }
     |> Async.Start
+    
+let startProfileStream (uuidPrefix:string) (model:Model) (dispatch:Dispatch<Message>) =
+    async {
+        try
+            match model.CurrentDevice with
+            | None -> dispatch (ShowError "No device selected!")
+            | Some (p, data) ->
+                let device = dbusBus.CreateProxy<IDevice1>(bluezName, p)
+                
+                // resolve uuid
+                let! uuid =
+                    async {
+                        let fromCache =
+                            match data with
+                            | Some dev ->
+                                dev.UUIDs |> Seq.tryFind(fun u -> u.StartsWith uuidPrefix)
+                            | None -> None
+                        match fromCache with
+                        | Some c -> return Some c
+                        | None ->
+                            // Retrieve latest data
+                            let! props = device.GetAllAsync() |> Async.AwaitTask
+                            dispatch (UpdateDeviceProperties(p, props))
+                            return props.UUIDs |> Seq.tryFind(fun u -> u.StartsWith uuidPrefix)
+                    }
+                
+                match uuid with
+                | None -> dispatch (ShowError (sprintf "Could not find uuid '%s'!" uuidPrefix))
+                | Some uuid ->
+                    // register dbus if needed
+                    let! profile =
+                        async {
+                            match model.DBusConnectedProfiles |> Map.tryFind uuid with
+                            | Some s -> return s
+                            | None ->
+                                dispatch (ShowProgress "Creating and registering new profile (dbus).")
+                                let profile = new MyProfile(dispatch, uuid)
+                                do! dbusBus.RegisterObjectAsync(profile) |> Async.AwaitTask
+                                dispatch (ShowProgress "Register with profile manager.")
+                                let profileManager = dbusBus.CreateProxy<IProfileManager1>(bluezName, ObjectPath "/org/bluez")
+                                do! profileManager.RegisterProfileAsync(profile.ObjectPath, uuid, new Dictionary<string, obj>()) |> Async.AwaitTask
+                                dispatch (ProfileRegistered(uuid, profile))
+                                return profile
+                        }
+                    
+                    dispatch (ShowProgress "Connecting profile.")
+                    do! device.ConnectProfileAsync(uuid) |> Async.AwaitTask
+                    dispatch (ShowProgress "Device profile connected.")
+        with e ->
+            dispatch (ShowError (sprintf "Device connection failed: %A" e))
+    }
+    |> Async.Start
 
 let pairDevice (p:ObjectPath) (dispatch:Dispatch<Message>) =
     async {
@@ -285,13 +413,22 @@ let parseHex (sin:string) =
     if not isOk then
         raise <| ArgumentException(sprintf "can not parse '%s' as hex string" sin)
 
-    let res = Array.zeroCreate byteLength
+    let res = ArrayPool.Shared.Rent byteLength
     let multiplier = if withDel then 3 else 2
     for i in 0 .. byteLength-1 do 
         let byteValue = s.Substring(i * multiplier, 2)
-        assert (withDel && i > 0 && s.[i * multiplier - 1] = ':')
+        System.Diagnostics.Debug.Assert(not withDel || i = 0 || s.[i * multiplier - 1] = ':', if i = 0 then "i = 0" else sprintf "s.[i * multiplier - 1] = '%c'" s.[i * multiplier - 1])
         res.[i] <- System.Byte.Parse(byteValue, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture)
-    res
+    new RentMemory(res, new Memory<byte>(res, 0, byteLength))
+
+let toHexString includeDots (b:ReadOnlyMemory<byte>) =
+    let baseLength = b.Length * 2
+    let sb = new StringBuilder(if includeDots then baseLength + (b.Length - 1) else baseLength)
+    let span = b.Span
+    for i in 0..b.Length - 1 do
+        sb.Append(span.[i].ToString("X2")) |> ignore
+        if includeDots && i < b.Length - 1 then sb.Append ':' |> ignore
+    sb.ToString()
 
 let tryParseHex (sin:string) =
     try Some (parseHex sin) with _ -> None
@@ -397,6 +534,7 @@ let parseInput (model:Model) (i:string) =
 
 let init () =
     { ObjectManager = None
+      DBusConnectedProfiles = Map.empty
       AvailableObjects = [||]
       AvailableStreams = [||]
       SelectedAdapter = None
@@ -421,6 +559,22 @@ let update message model =
             { model with SelectedAdapter = Some path }, Cmd.none
         | SelectDevice path ->
             { model with SelectedDevice = Some path }, Cmd.none
+        | ProfileRegistered(uuid, profile) ->
+            { model with DBusConnectedProfiles = model.DBusConnectedProfiles |> Map.add uuid profile }, Cmd.none
+        | NewConnectedStream(stream) ->
+            { model with AvailableStreams = Array.append model.AvailableStreams [|stream|]; SelectedStream = Some stream }, Cmd.none
+        | DisconnectedStream (stream) ->
+            { model with
+                AvailableStreams = model.AvailableStreams |> Array.filter (fun s -> not <| Object.ReferenceEquals(s, stream))
+                SelectedStream = 
+                    match model.SelectedStream with
+                    | Some s when Object.ReferenceEquals(s, stream) -> None
+                    | _ -> model.SelectedStream }, Cmd.none
+        | SendBytes (data) ->
+            match model.SelectedStream with
+            | Some s -> s.StartSend(data)
+            | None -> ()
+            model, Cmd.none
         | PrepareDetails tp ->
             let retrieveDetails (dispatch:Dispatch<Message>) =
                 async {
@@ -429,11 +583,13 @@ let update message model =
                         match model.SelectedDevice with
                         | None -> dispatch (ShowError "No device selected!")
                         | Some p -> getDeviceProperties p dispatch
-                    | _ -> ()
+                    | _ -> dispatch (ShowError "Not implemented!")
                 }
                 |> Async.Start
 
             model, Cmd.ofSub retrieveDetails
+        | ConnectProfileStream uuidPrefix ->
+            model, Cmd.ofSub (startProfileStream uuidPrefix model)
         | ConnectDevice ->
             let cmd =
                 match model.CurrentDevice with
@@ -484,7 +640,7 @@ let update message model =
                 if model.SelectedAdapter = Some path then None else model.SelectedAdapter
             let newSelectedStream =
                 match model.SelectedStream with
-                | Some s when s.Adapter = path || s.Device = path ->
+                | Some s when s.Device = path ->
                     None
                 | _ -> model.SelectedStream
             { model with 
@@ -523,6 +679,10 @@ let view model dispatch =
     | Some (PrintHelp, _) -> Console.WriteLine (helpString)
     | Some (ShowError err, _) ->
         Console.WriteLine (sprintf "Error: %s" err)
+    | Some (ReceivedBytes(stream, data), _) ->
+        Console.WriteLine (sprintf "Received Data '%O/%s': %A" stream.Device stream.UUID (toHexString true (Memory<byte>.op_Implicit data.Memory)))
+        data.Dispose()
+        disablePrompt <- true
     | Some (ShowOk msg, _) ->
         Console.WriteLine (msg)
     | Some (ShowProgress msg, _) ->
