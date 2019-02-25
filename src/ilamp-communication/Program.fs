@@ -12,6 +12,72 @@ open Fable.PowerPack.Keyboard
 open System.Buffers
 open System.Text
 
+module ReflectionBased =
+    let rec printEnumerable (d:System.Collections.IEnumerable) : string =
+        "[ " + String.Join(";\n  ",
+            d |> Seq.cast<obj> |> Seq.map (fun k -> (printValue k).Replace("\n", "\n  "))) + " ]"
+    and printKeyValuePair (k, v) =
+        let genValue = printValue v
+        if genValue.Contains "\n" then
+            sprintf "%A ->\n    %s" k (genValue.Replace("\n", "\n    "))
+        else sprintf "%A -> %s" k (genValue)
+    and printValue (a) : string =
+        if isNull a then "<NULL>"
+        else
+            let t = a.GetType()
+            match a with
+            | :? System.String as s -> sprintf "%A" s
+            | :? System.Collections.IEnumerable as d -> printEnumerable d
+            | _ when t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<KeyValuePair<_,_>> ->
+                let t = a.GetType()
+                let kvpKey = t.GetProperty("Key").GetValue(a, null);
+                let kvpValue = t.GetProperty("Value").GetValue(a, null);
+                printKeyValuePair (kvpKey, kvpValue)
+            | _ -> 
+                sprintf "%A" a
+
+
+type MyAgent () =
+    let path =  ObjectPath ("/ilamp/bluez/agent")
+    member x.ObjectPath = path
+    interface IAgent1 with
+        member x.ReleaseAsync() =
+            printfn "MyAgent/ReleaseAsync"
+            Task.CompletedTask
+        member x.RequestPinCodeAsync(device) =
+            printfn "RequestPinCodeAsync"
+            // The return value should be a string of 1-16 characters
+            // length. The string can be alphanumeric.
+            Task.FromResult "01234567"
+        member x.DisplayPinCodeAsync(device, pinCode) =
+            printfn "DisplayPinCodeAsync: %s" pinCode
+            Task.CompletedTask
+        member x.RequestPasskeyAsync(device) =
+            printfn "RequestPasskeyAsync"
+            // 0-999999
+            Task.FromResult (0u)
+
+        member x.DisplayPasskeyAsync(device, passkey, entered) =
+            printfn "DisplayPasskeyAsync %A %A" passkey entered
+            Task.CompletedTask
+        member x.RequestConfirmationAsync(device, passkey) =
+            printfn "RequestConfirmationAsync %A" passkey
+            Task.CompletedTask
+
+        member x.RequestAuthorizationAsync(device)=
+            printfn "RequestAuthorizationAsync"
+            Task.CompletedTask
+        member x.AuthorizeServiceAsync(device, uuid) =
+            printfn "AuthorizeServiceAsync %A" uuid
+            Task.CompletedTask
+
+        member x.CancelAsync() =
+            printfn "MyAgent.CancelAsync"
+            Task.CompletedTask
+
+    interface IDBusObject with
+        member x.ObjectPath = x.ObjectPath
+
 (*
 type DemoAgent () =
     interface Agent
@@ -44,13 +110,16 @@ type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:str
             while not tok.IsCancellationRequested do
                 let rented = ArrayPool.Shared.Rent(4096)
                 let mem = new Memory<byte>(rented)
+                printfn "starting to read.."
                 let! read = stream.ReadAsync(mem, tok).AsTask() |> Async.AwaitTask
+                printfn "read '%d' bytes of data!" read
                 if read > 0 then
                     dispatch(ReceivedBytes(x, new RentMemory(rented, mem.Slice(0, read))))
                 else
                     printfn "Error: Read stream finished!"
                     ()
 
+            printfn "reading task finished."
             stream.Close()
             stream.Dispose()
         }
@@ -66,6 +135,7 @@ type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:str
             try
                 try
                     do! stream.WriteAsync(Memory.op_Implicit r.Memory).AsTask() |> Async.AwaitTask
+                    do! stream.FlushAsync() |> Async.AwaitTask
                     dispatch (ShowOk "Sending succeeded!")
                 with e ->
                     dispatch(ShowError (sprintf "Error while sending data: %A" e))
@@ -81,7 +151,7 @@ type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:str
 
 and MyProfile (dispatch: Dispatch<Message>, uuid:string) =
     let connections = ResizeArray<ProfileConnection>()
-    let path =  ObjectPath ("/ilamp/myprofile/" + uuid.Replace("-", ""))
+    let path =  ObjectPath ("/ilamp/bluez/myprofile/" + uuid.Replace("-", ""))
     member x.ObjectPath = path
     interface IProfile1 with
         member x.ReleaseAsync() = Task.CompletedTask
@@ -117,7 +187,9 @@ and Message =
     | NewConnectedStream of ProfileConnection
     | DisconnectedStream of ProfileConnection
     | ConnectDevice
+    | DisconnectDevice
     | PairDevice
+    | UnpairDevice
     | ConnectProfileStream of uuidPrefix:string // selected device
     | UpdateDeviceProperties of ObjectPath * Device1Properties
     | ListAdapterProperties of ObjectPath
@@ -190,27 +262,6 @@ let readInputs (dispatch:Dispatch<Message>) =
     |> Async.Start
     |> ignore
 
-module ReflectionBased =
-    let rec printEnumerable (d:System.Collections.IEnumerable) : string =
-        "[" + String.Join(";\n",
-            d |> Seq.cast<obj> |> Seq.map (fun k -> printValue k)) + " ]"
-    and printKeyValuePair (k, v) =
-        sprintf "  %A ->\n    %s" k ((printValue v).Replace("\n", "\n    "))
-    and printValue (a) : string =
-        if isNull a then "<NULL>"
-        else
-            let t = a.GetType()
-            match a with
-            | :? System.String as s -> sprintf "%A" s
-            | :? System.Collections.IEnumerable as d -> printEnumerable d
-            | _ when t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<KeyValuePair<_,_>> ->
-                let t = a.GetType()
-                let kvpKey = t.GetProperty("Key").GetValue(a, null);
-                let kvpValue = t.GetProperty("Value").GetValue(a, null);
-                printKeyValuePair (kvpKey, kvpValue)
-            | _ -> 
-                sprintf "%A" a
-
 
 let trySet (values:IDictionary<_,_>) key f =
     match values.TryGetValue key with
@@ -278,7 +329,14 @@ let connectInterface (dispatch:Dispatch<Message>) =
         if isServer then
             let! c = dbusBus.ConnectAsync() |> Async.AwaitTask
             ignore c
-
+        
+        do! dbusBus.RegisterServiceAsync("de.ilamp") |> Async.AwaitTask
+        
+        let agent = new MyAgent()
+        do! dbusBus.RegisterObjectAsync(agent) |> Async.AwaitTask
+        let agentMgr = dbusBus.CreateProxy<IAgentManager1>(bluezName, ObjectPath "/org/bluez")
+        do! agentMgr.RegisterAgentAsync(agent.ObjectPath, "KeyboardDisplay") |> Async.AwaitTask
+        do! agentMgr.RequestDefaultAgentAsync(agent.ObjectPath) |> Async.AwaitTask
         let manager = dbusBus.CreateProxy<IObjectManager>(bluezName, ObjectPath.Root)
         let! d =
             manager.WatchInterfacesAddedAsync(
@@ -315,6 +373,19 @@ let connectDevice (p:ObjectPath) (dispatch:Dispatch<Message>) =
     }
     |> Async.Start
     
+
+let disconnectDevice (p:ObjectPath) (dispatch:Dispatch<Message>) =
+    async {
+        try
+            let device = dbusBus.CreateProxy<IDevice1>(bluezName, p)
+            dispatch (ShowProgress "Trying to disconnect ....")
+            do! device.DisconnectAsync() |> Async.AwaitTask
+            dispatch (ShowOk "Device disconnect!")
+        with e ->
+            dispatch (ShowError (sprintf "Device connection failed: %A" e))
+    }
+    |> Async.Start
+
 let startDiscover (p:ObjectPath) (dispatch:Dispatch<Message>) =
     async {
         try
@@ -377,7 +448,13 @@ let startProfileStream (uuidPrefix:string) (model:Model) (dispatch:Dispatch<Mess
                                 do! dbusBus.RegisterObjectAsync(profile) |> Async.AwaitTask
                                 dispatch (ShowProgress "Register with profile manager.")
                                 let profileManager = dbusBus.CreateProxy<IProfileManager1>(bluezName, ObjectPath "/org/bluez")
-                                do! profileManager.RegisterProfileAsync(profile.ObjectPath, uuid, new Dictionary<string, obj>()) |> Async.AwaitTask
+                                let dic = new Dictionary<string, obj>()
+                                dic.["Channel"] <- uint16 1us
+                                //dic.["AutoConnect"] <- true
+                                dic.["Role"] <- "client"
+                                dic.["Name"] <- "SerialPort"
+                                dic.["Service"] <- "00000003-0000-1000-8000-00805F9B34FB"
+                                do! profileManager.RegisterProfileAsync(profile.ObjectPath, uuid, dic) |> Async.AwaitTask
                                 dispatch (ProfileRegistered(uuid, profile))
                                 return profile
                         }
@@ -395,9 +472,23 @@ let pairDevice (p:ObjectPath) (dispatch:Dispatch<Message>) =
         try
             let device = dbusBus.CreateProxy<IDevice1>(bluezName, p)
             do! device.PairAsync() |> Async.AwaitTask
+            do! device.SetAsync("Trusted", true) |> Async.AwaitTask
             dispatch (ShowOk "Device paired!")
         with e ->
-            dispatch (ShowError (sprintf "Device connection failed: %A" e))
+            dispatch (ShowError (sprintf "Device pairing failed: %A" e))
+    }
+    |> Async.Start
+
+let unpairDevice (p:ObjectPath) (dispatch:Dispatch<Message>) =
+    async {
+        try
+            let device = dbusBus.CreateProxy<IDevice1>(bluezName, p)
+            let! adapterPath = device.GetAdapterAsync() |> Async.AwaitTask
+            let adapter = dbusBus.CreateProxy<IAdapter1>(bluezName, adapterPath)
+            do! adapter.RemoveDeviceAsync(p) |> Async.AwaitTask
+            dispatch (ShowOk "Device deleted/unpaired!")
+        with e ->
+            dispatch (ShowError (sprintf "Device deletion/unpairing failed: %A" e))
     }
     |> Async.Start
 
@@ -515,8 +606,13 @@ let parseInput (model:Model) (i:string) =
         ConnectProfileStream splits.[1]
     | "connect", _ when splits.Length = 1 ->
         ConnectDevice
+    | "disconnect", _ when splits.Length = 1 ->
+        DisconnectDevice
     | "pair", _ when splits.Length = 1 ->
         PairDevice
+    | "unpair", _ | "delete", _ when splits.Length = 1 ->
+        // https://stackoverflow.com/questions/35999773/dbus-bluez5-cancelpairing
+        UnpairDevice
     | "send", _ | "s", _ when splits.Length = 2 ->
         // parse 30:31:32:33:34:35:36:37
         match tryParseHex splits.[1] with
@@ -598,6 +694,14 @@ let update message model =
                 | Some (path, Some (_)) ->
                     Cmd.ofSub (connectDevice path)
             model, cmd
+        | DisconnectDevice ->
+            let cmd =
+                match model.CurrentDevice with
+                | None -> ShowError "No device selected." |> Cmd.ofMsg
+                | Some (path, None) -> ShowError (sprintf "Selected device '%O' no longer available." path) |> Cmd.ofMsg
+                | Some (path, Some (_)) ->
+                    Cmd.ofSub (disconnectDevice path)
+            model, cmd
         | PairDevice ->
             let cmd =
                 match model.CurrentDevice with
@@ -605,6 +709,14 @@ let update message model =
                 | Some (path, None) -> ShowError (sprintf "Selected device '%O' no longer available." path) |> Cmd.ofMsg
                 | Some (path, Some (_)) ->
                     Cmd.ofSub (pairDevice path)
+            model, cmd
+        | UnpairDevice ->
+            let cmd =
+                match model.CurrentDevice with
+                | None -> ShowError "No device selected." |> Cmd.ofMsg
+                | Some (path, None) -> ShowError (sprintf "Selected device '%O' no longer available." path) |> Cmd.ofMsg
+                | Some (path, Some (_)) ->
+                    Cmd.ofSub (unpairDevice path)
             model, cmd
         | StartDiscover ->
             let cmd =
@@ -666,6 +778,7 @@ operations:
   startStream <uuid>  connect the currently selected device and open a stream for the given profile, and selects it as current stream
   connect             connect the currently selected device
   pair                pair the currently selected device
+  unpair/delete       remove the selected device, deletes pairing information
   send/s <hexdata>    send the given data to the currently selected stream
   discover            start device discovery for the currently selected adapter
   exit/quit           exit the application
@@ -715,6 +828,16 @@ let view model dispatch =
             |> printfn "%s"
     | Some (PrepareList SelectItemType.Stream, _) ->
         Console.WriteLine ("Streams:")
+        model.AvailableStreams
+            |> Seq.mapi (fun idx s ->
+                (idx, s.UUID),
+                [ "Device", string s.Device
+                  "UUID", s.UUID
+                  "Profile", string s.Profile.ObjectPath ] |> dict)
+            |> dict
+            |> ReflectionBased.printValue
+            |> printfn "%s"
+            
     | Some (UpdateDeviceProperties (path, props), _) ->
         Console.WriteLine (sprintf "Device '%O' details:" path)
         props.AsDictionary()
