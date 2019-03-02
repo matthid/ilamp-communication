@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Fable.Elmish" Version="2.0.3" />
     <PackageReference Include="Tmds.DBus" Version="0.7.0" />
+    <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
     <ProjectReference Include="..\ilamp-communication.dbus\ilamp-communication.dbus.csproj" />
   </ItemGroup>
 

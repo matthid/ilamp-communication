@@ -2,9 +2,13 @@
 
 ## Connection 
 
--> SPP Conection C9:A3:05:F#:BD:41
+-> SPP Conection C9:A3:05:FE:BD:41
 
 RFCOMM -> Channel 2
+
+## Other mac addresses???
+
+48:77:DF:1C:0F:04
 
 ### SPP Channel 2 (lamp_connect_on_off_idle):
 

@@ -11,6 +11,46 @@ open System.Threading.Tasks
 open Fable.PowerPack.Keyboard
 open System.Buffers
 open System.Text
+open System.Runtime.InteropServices
+
+type RentMemory (poolMemory, mem) =
+    member x.Memory = mem
+    member x.Dispose() =
+        ArrayPool.Shared.Return(poolMemory, false)
+    interface IDisposable with
+        member x.Dispose() = x.Dispose()
+
+let parseHex (sin:string) =
+    
+    // parse 30:31:32:33:34:35:36:37
+    let s = sin.Trim(':')
+    let withDel = s.Contains (':')
+    let byteLength, isOk =
+        if not withDel then s.Length / 2, s.Length % 2 = 0
+        else 
+            ((s.Length - 2) / 3) + 1, s.Length > 2 && (s.Length - 2) % 3 = 0
+    if not isOk then
+        raise <| ArgumentException(sprintf "can not parse '%s' as hex string" sin)
+
+    let res = ArrayPool.Shared.Rent byteLength
+    let multiplier = if withDel then 3 else 2
+    for i in 0 .. byteLength-1 do 
+        let byteValue = s.Substring(i * multiplier, 2)
+        System.Diagnostics.Debug.Assert(not withDel || i = 0 || s.[i * multiplier - 1] = ':', if i = 0 then "i = 0" else sprintf "s.[i * multiplier - 1] = '%c'" s.[i * multiplier - 1])
+        res.[i] <- System.Byte.Parse(byteValue, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture)
+    new RentMemory(res, new Memory<byte>(res, 0, byteLength))
+
+let toHexString includeDots (b:ReadOnlyMemory<byte>) =
+    let baseLength = b.Length * 2
+    let sb = new StringBuilder(if includeDots then baseLength + (b.Length - 1) else baseLength)
+    let span = b.Span
+    for i in 0..b.Length - 1 do
+        sb.Append(span.[i].ToString("X2")) |> ignore
+        if includeDots && i < b.Length - 1 then sb.Append ':' |> ignore
+    sb.ToString()
+
+let tryParseHex (sin:string) =
+    try Some (parseHex sin) with _ -> None
 
 module ReflectionBased =
     let rec printEnumerable (d:System.Collections.IEnumerable) : string =
@@ -96,32 +136,60 @@ type ObjectInfo =
     member x.IsAdapter = x.AdapterProps.IsSome
     member x.IsDevice = x.DeviceProps.IsSome
 
-type RentMemory (poolMemory, mem) =
-    member x.Memory = mem
-    member x.Dispose() =
-        ArrayPool.Shared.Return(poolMemory, false)
-    interface IDisposable with
-        member x.Dispose() = x.Dispose()
 
-type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:string, stream:FileStream, p:MyProfile) as x =
+type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:string, hnd: SafeHandle, stream:Stream, p:MyProfile) as x =
     let tokenSource = new CancellationTokenSource()
-    let startReaderTask (stream:FileStream) (tok:CancellationToken) =
+    let handle = hnd
+    let startReaderTask (stream:Stream) (tok:CancellationToken) =
         async {
-            while not tok.IsCancellationRequested do
-                let rented = ArrayPool.Shared.Rent(4096)
-                let mem = new Memory<byte>(rented)
-                printfn "starting to read.."
-                let! read = stream.ReadAsync(mem, tok).AsTask() |> Async.AwaitTask
-                printfn "read '%d' bytes of data!" read
-                if read > 0 then
-                    dispatch(ReceivedBytes(x, new RentMemory(rented, mem.Slice(0, read))))
-                else
-                    printfn "Error: Read stream finished!"
-                    ()
+            let lastBeat = System.Diagnostics.Stopwatch.StartNew() 
+            try
+                // TODO: change logic to first read header and then the rest...
+                while not tok.IsCancellationRequested do
+                    let rented = ArrayPool.Shared.Rent(106)
+                    let mem = new Memory<byte>(rented)
+                    //printfn "starting to read.."
+                    let handleErr (e : Mono.Unix.UnixIOException) = async {
+                        if e.NativeErrorCode = 0 then
+                            printfn "ReadAsync -> Success exception"
+                            dispatch(ReceivedBytes(x, new RentMemory(rented, mem)))
+                            () // Success
+                        else
+                            match e.ErrorCode with
+                            | Mono.Unix.Native.Errno.EWOULDBLOCK ->
+                                // data not available yet
+                                //use heartbeat = parseHex "01fe0000510210000000008000000080"
+                                // to prevent timeout?
+                                do! Async.Sleep 500
+                                if (lastBeat.ElapsedMilliseconds > 500L) then
+                                    dispatch (UserInput "send 01fe0000510210000000008000000080")
+                                    lastBeat.Restart()
+                            | _ ->                            
+                                raise <| exn("Error", e) }
+                    try
+                        let! read = stream.ReadAsync(mem, tok).AsTask() |> Async.AwaitTask
+                        if read > 0 then
+                            printfn "read '%d' bytes of data!" read
+                            dispatch(ReceivedBytes(x, new RentMemory(rented, mem.Slice(0, read))))
+                        else
+                            // seems to happen...
+                            //printfn "Error: Read stream finished!"
+                            ()
+                    with
+                    | :? System.AggregateException as agg ->
+                        match agg.Flatten().InnerException with
+                        | :? Mono.Unix.UnixIOException as e -> return! handleErr e
+                        | a -> raise <| exn("Error", a)
 
-            printfn "reading task finished."
-            stream.Close()
-            stream.Dispose()
+                    | :? Mono.Unix.UnixIOException as e ->
+                        return! handleErr e
+
+                printfn "reading task finished."
+                stream.Close()
+                stream.Dispose()
+            with 
+            | e ->
+                printfn "reading task crashed: %A" e
         }
         |> Async.StartAsTask
 
@@ -146,6 +214,7 @@ type ProfileConnection(dispatch : Dispatch<Message>, device:ObjectPath, uuid:str
     member x.Close() =
         tokenSource.Cancel()
         readerTask.Wait()
+        handle.Close()
 
     
 
@@ -154,12 +223,38 @@ and MyProfile (dispatch: Dispatch<Message>, uuid:string) =
     let path =  ObjectPath ("/ilamp/bluez/myprofile/" + uuid.Replace("-", ""))
     member x.ObjectPath = path
     interface IProfile1 with
-        member x.ReleaseAsync() = Task.CompletedTask
+        member x.ReleaseAsync() = 
+            dispatch (ShowProgress (sprintf "ReleaseAsync ()"))
+            Task.CompletedTask
         member x.NewConnectionAsync(device, fd, properties) =
-            dispatch (ShowProgress (sprintf "new connection %O => %A" device properties))
-            let con = new ProfileConnection(dispatch, device, uuid, new FileStream(fd, FileAccess.ReadWrite), x)
-            connections.Add(con)
-            dispatch (NewConnectedStream(con))
+            try
+                dispatch (ShowProgress (sprintf "new connection %O => %A" device properties))
+                let real = fd.MakeUnclosable()
+                let hnd = int (real.DangerousGetHandle())
+                let str = new Mono.Unix.UnixStream(hnd, false)
+                //let str = new FileStream(fd.DangerousGetHandle())
+                let con = new ProfileConnection(dispatch, device, uuid, real, str, x)
+                connections.Add(con)
+                use init = parseHex "3031323334353637"
+                str.Write (Span.op_Implicit init.Memory.Span)
+                use heartbeat = parseHex "01fe0000510210000000008000000080"
+                str.Write (Span.op_Implicit heartbeat.Memory.Span)
+                let z = Array.zeroCreate 16
+                let rec doRead (tries) =
+                    try
+                        let read = str.Read(z, 0 , 16)
+                        dispatch (ShowProgress (sprintf "Read %d bytes!!!!!!!!!" read))
+                    with 
+                    | :? Mono.Unix.UnixIOException as e when tries > 0->
+                        if e.ErrorCode = Mono.Unix.Native.Errno.EWOULDBLOCK then
+                            Thread.Sleep 50
+                            doRead(tries - 1)
+                        else reraise()
+                doRead(10) 
+                dispatch (NewConnectedStream(con))
+            with e ->
+                dispatch (ShowError (sprintf "Error in NewConnectionAsync: %A" e))
+                reraise()
             Task.CompletedTask
         member x.RequestDisconnectionAsync(device) =
             dispatch (ShowProgress (sprintf "connection closed %O" device))
@@ -326,38 +421,44 @@ let getDevice key (kv:IDictionary<_,IDictionary<_,obj>>) =
 
 let connectInterface (dispatch:Dispatch<Message>) =
     async {
-        if isServer then
-            let! c = dbusBus.ConnectAsync() |> Async.AwaitTask
-            ignore c
-        
-        do! dbusBus.RegisterServiceAsync("de.ilamp") |> Async.AwaitTask
-        
-        let agent = new MyAgent()
-        do! dbusBus.RegisterObjectAsync(agent) |> Async.AwaitTask
-        let agentMgr = dbusBus.CreateProxy<IAgentManager1>(bluezName, ObjectPath "/org/bluez")
-        do! agentMgr.RegisterAgentAsync(agent.ObjectPath, "KeyboardDisplay") |> Async.AwaitTask
-        do! agentMgr.RequestDefaultAgentAsync(agent.ObjectPath) |> Async.AwaitTask
-        let manager = dbusBus.CreateProxy<IObjectManager>(bluezName, ObjectPath.Root)
-        let! d =
-            manager.WatchInterfacesAddedAsync(
-                (fun struct (path, dict) ->
-                    dispatch (ObjectConnected (getDevice path dict))),
-                (fun exn ->
-                    System.Console.WriteLine("Error while adding interface: {0}", exn)))
-                |> Async.AwaitTask
-        let! d =
-            manager.WatchInterfacesRemovedAsync(
-                (fun struct (path, dict) ->
-                    dispatch (ObjectDisconnected (path))),
-                (fun exn ->
-                    System.Console.WriteLine("Error while removing interface: {0}", exn)))
-                |> Async.AwaitTask
-        let! d = manager.GetManagedObjectsAsync() |> Async.AwaitTask
-        let connectInfo =
-            d
-            |> Seq.map (fun kv -> getDevice kv.Key kv.Value)
-            |> Seq.toList
-        dispatch (ConnectedDBus(manager, connectInfo))
+        try
+            let! serviceName = async {
+                if isServer then
+                    let! c = dbusBus.ConnectAsync() |> Async.AwaitTask
+                    return c.LocalName
+                else
+                    do! dbusBus.RegisterServiceAsync("de.ilamp") |> Async.AwaitTask
+                    return "de.ilamp"
+            }
+            
+            let agent = new MyAgent()
+            do! dbusBus.RegisterObjectAsync(agent) |> Async.AwaitTask
+            let agentMgr = dbusBus.CreateProxy<IAgentManager1>(bluezName, ObjectPath "/org/bluez")
+            do! agentMgr.RegisterAgentAsync(agent.ObjectPath, "KeyboardDisplay") |> Async.AwaitTask
+            do! agentMgr.RequestDefaultAgentAsync(agent.ObjectPath) |> Async.AwaitTask
+            let manager = dbusBus.CreateProxy<IObjectManager>(bluezName, ObjectPath.Root)
+            let! d =
+                manager.WatchInterfacesAddedAsync(
+                    (fun struct (path, dict) ->
+                        dispatch (ObjectConnected (getDevice path dict))),
+                    (fun exn ->
+                        System.Console.WriteLine("Error while adding interface: {0}", exn)))
+                    |> Async.AwaitTask
+            let! d =
+                manager.WatchInterfacesRemovedAsync(
+                    (fun struct (path, dict) ->
+                        dispatch (ObjectDisconnected (path))),
+                    (fun exn ->
+                        System.Console.WriteLine("Error while removing interface: {0}", exn)))
+                    |> Async.AwaitTask
+            let! d = manager.GetManagedObjectsAsync() |> Async.AwaitTask
+            let connectInfo =
+                d
+                |> Seq.map (fun kv -> getDevice kv.Key kv.Value)
+                |> Seq.toList
+            dispatch (ConnectedDBus(manager, connectInfo))
+        with e ->
+            dispatch (ShowError (sprintf "Connect DBUS failed: %A" e))
     }
     |> Async.Start
 
@@ -449,12 +550,13 @@ let startProfileStream (uuidPrefix:string) (model:Model) (dispatch:Dispatch<Mess
                                 dispatch (ShowProgress "Register with profile manager.")
                                 let profileManager = dbusBus.CreateProxy<IProfileManager1>(bluezName, ObjectPath "/org/bluez")
                                 let dic = new Dictionary<string, obj>()
-                                dic.["Channel"] <- uint16 1us
+                                //dic.["Channel"] <- uint16 0us
                                 //dic.["AutoConnect"] <- true
-                                dic.["Role"] <- "client"
-                                dic.["Name"] <- "SerialPort"
-                                dic.["Service"] <- "00000003-0000-1000-8000-00805F9B34FB"
+                                //dic.["Role"] <- "client"
+                                //dic.["Name"] <- "SerialPort"
+                                //dic.["Service"] <- "00000003-0000-1000-8000-00805F9B34FB" // RFCOMM, see https://www.bluetooth.com/specifications/assigned-numbers/service-discovery
                                 do! profileManager.RegisterProfileAsync(profile.ObjectPath, uuid, dic) |> Async.AwaitTask
+                                //profileManager.RegisterProfileAsync()
                                 dispatch (ProfileRegistered(uuid, profile))
                                 return profile
                         }
@@ -492,37 +594,6 @@ let unpairDevice (p:ObjectPath) (dispatch:Dispatch<Message>) =
     }
     |> Async.Start
 
-let parseHex (sin:string) =
-    
-    // parse 30:31:32:33:34:35:36:37
-    let s = sin.Trim(':')
-    let withDel = s.Contains (':')
-    let byteLength, isOk =
-        if not withDel then s.Length / 2, s.Length % 2 = 0
-        else 
-            ((s.Length - 2) / 3) + 1, s.Length > 2 && (s.Length - 2) % 3 = 0
-    if not isOk then
-        raise <| ArgumentException(sprintf "can not parse '%s' as hex string" sin)
-
-    let res = ArrayPool.Shared.Rent byteLength
-    let multiplier = if withDel then 3 else 2
-    for i in 0 .. byteLength-1 do 
-        let byteValue = s.Substring(i * multiplier, 2)
-        System.Diagnostics.Debug.Assert(not withDel || i = 0 || s.[i * multiplier - 1] = ':', if i = 0 then "i = 0" else sprintf "s.[i * multiplier - 1] = '%c'" s.[i * multiplier - 1])
-        res.[i] <- System.Byte.Parse(byteValue, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture)
-    new RentMemory(res, new Memory<byte>(res, 0, byteLength))
-
-let toHexString includeDots (b:ReadOnlyMemory<byte>) =
-    let baseLength = b.Length * 2
-    let sb = new StringBuilder(if includeDots then baseLength + (b.Length - 1) else baseLength)
-    let span = b.Span
-    for i in 0..b.Length - 1 do
-        sb.Append(span.[i].ToString("X2")) |> ignore
-        if includeDots && i < b.Length - 1 then sb.Append ':' |> ignore
-    sb.ToString()
-
-let tryParseHex (sin:string) =
-    try Some (parseHex sin) with _ -> None
 
 let parseInput (model:Model) (i:string) =
     let splits = i.Split([|' '|], StringSplitOptions.RemoveEmptyEntries)
@@ -628,7 +699,7 @@ let parseInput (model:Model) (i:string) =
 
 
 
-let init () =
+let init startMsgs () =
     { ObjectManager = None
       DBusConnectedProfiles = Map.empty
       AvailableObjects = [||]
@@ -640,6 +711,7 @@ let init () =
     Cmd.batch [
         Cmd.ofSub readInputs
         Cmd.ofSub connectInterface
+        startMsgs
         ]
 
 
@@ -916,9 +988,21 @@ let withConsoleTrace (program: Program<'arg, 'model, 'msg, 'view>) =
 
 [<EntryPoint>]
 let main argv =
-    
 
-    Program.mkProgram init update view
+    let startMsgs =
+        Cmd.ofSub (fun dispatch ->
+            async {
+                do! Async.Sleep 2000
+                dispatch (UserInput "select adapter 0")
+                do! Async.Sleep 200
+                dispatch (UserInput "select device /org/bluez/hci0/dev_C9_A3_05_FE_BD_41")
+                do! Async.Sleep 200
+                dispatch (UserInput "startStream 00001101-0000-1000-8000-00805f9b34fb")
+            }
+            |> Async.Start
+        ) 
+
+    Program.mkProgram (init startMsgs) update view
     |> withConsoleTrace
     |> Program.run
 
