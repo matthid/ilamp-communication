@@ -30,6 +30,7 @@ bulb.set_color(1.0, '0000ff') # Set color to blue
 
 Connect
 
+
 ```python
         self._sock.connect((self._host, self._port))
 
@@ -45,6 +46,13 @@ Connect
 
 Set-Color
 
+# red
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.5&color=FF0000
+# green
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.5&color=00FF00
+# blue
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.5&color=0000FF
+
 ```python
     @staticmethod
     def _get_color_code(brightness, hex_color):
@@ -57,6 +65,9 @@ Set-Color
 ```
 
 Set-Warm-Brightness
+
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_warm_brightness&brightness=0.5
+
 ```python
 
     @staticmethod
@@ -72,6 +83,8 @@ Set-Warm-Brightness
 
 Set-Warm-Color
 
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_warm_color&color=0.5
+
 ```python
     @staticmethod
     def _get_yellow_white_code(percent):
@@ -85,6 +98,10 @@ Set-Warm-Color
 ```
 
 Set-Mode
+
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=poweron_white
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=poweron_color
+http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=poweroff
 
 ```python
     @staticmethod

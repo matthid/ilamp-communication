@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dotnet publish --self-contained --runtime ubuntu.18.04-x64
+dotnet publish -c Debug --self-contained --runtime ubuntu.18.04-x64
 
 ssh matthid@192.168.178.25 'rm -rf ~/ilamp_test'
 
