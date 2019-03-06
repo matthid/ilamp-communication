@@ -174,6 +174,18 @@ type ObjectInfo =
     member x.IsAdapter = x.AdapterProps.IsSome
     member x.IsDevice = x.DeviceProps.IsSome
 
+    override x.ToString() =
+        let inline someOrNone (s: ^a option) =
+            match s with
+            | Some s -> 
+                let dict = (^a : (member AsDictionary : unit -> IDictionary<string, obj>) (s))
+                sprintf "Some (%s)" (ReflectionBased.printValue dict)
+            | None -> "None"
+        sprintf """{ Path = %O;
+ AdapterProps = %s;
+ LEAdvertisingProps = %A;
+ DeviceProps = %s; }""" x.Path (someOrNone x.AdapterProps) (x.LEAdvertisingProps) (someOrNone x.DeviceProps)
+
 type LogLevel =
     | Debug
     | Info
@@ -321,6 +333,7 @@ and HorevoProfileConnection(dispatch : Dispatch<HorevoProfileCallback>, props:De
                 stream.Dispose()
             with 
             | e ->
+                do! p.ReconnectProfile(device)
                 logExn e LogLevel.Fatal "Reading task failed"
                 printfn "reading task crashed: %A" e
         }
@@ -331,13 +344,28 @@ and HorevoProfileConnection(dispatch : Dispatch<HorevoProfileCallback>, props:De
     let sendAsync (r:RentMemory) =
         async {
             try
-                try
-                    do! stream.WriteAsync(Memory.op_Implicit r.Memory).AsTask() |> Async.AwaitTask
-                    do! stream.FlushAsync() |> Async.AwaitTask
-                with e ->
+                let handleErrGen (e:exn) =
                     let msg = sprintf "Error while trying to send '%s'" (toHexString false (Memory.op_Implicit r.Memory))
                     logExn e LogLevel.Error msg
                     raise <| exn (msg, e)
+
+                let handleErr (e : Mono.Unix.UnixIOException) = async {
+                    match e.ErrorCode with
+                    | Mono.Unix.Native.Errno.ENOTCONN ->
+                        logExn e LogLevel.Warning "RFCOMM connection stopped with 'ENOTCONN' (lamp might be turned off), reconnecting..."
+                        do! p.ReconnectProfile(device)
+                    | _ -> handleErrGen e }
+                try
+                    do! stream.WriteAsync(Memory.op_Implicit r.Memory).AsTask() |> Async.AwaitTask
+                    do! stream.FlushAsync() |> Async.AwaitTask
+                with
+                | :? System.AggregateException as agg ->
+                    match agg.Flatten().InnerException with
+                    | :? Mono.Unix.UnixIOException as e -> return! handleErr e
+                    | a -> handleErrGen a
+                | :? Mono.Unix.UnixIOException as e ->
+                    return! handleErr e
+            
             finally
                 r.Dispose()
         }
@@ -403,7 +431,9 @@ and HorevoProfileConnection(dispatch : Dispatch<HorevoProfileCallback>, props:De
         readerTask.Wait()
         handle.Close()
 
-and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>, uuid:Guid) =
+
+and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>) =
+    static let uuid = Guid.Parse "00001101-0000-1000-8000-00805F9B34FB"
     let logExn exn level message = log LogMessage dispatch exn level message
     let log level message = log LogMessage dispatch null level message
     let connections = ResizeArray<HorevoProfileConnection>()
@@ -453,7 +483,52 @@ and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>, u
         if results.Length > 1 then failwithf "expected only one connection but found %d streams for %O" results.Length device
         results |> List.tryHead
 
+    member x.ConnectProfile devicePath =
+        async {
+            let device = dbus.CreateProxy<IDevice1>(bluezName, devicePath)
+            // register dbus if needed
+            do! device.ConnectProfileAsync(uuid.ToString()) |> Async.AwaitTask
+        }
 
+    member x.DisconnectProfile devicePath =
+        async {
+            let device = dbus.CreateProxy<IDevice1>(bluezName, devicePath)
+            // register dbus if needed
+            do! device.DisconnectProfileAsync(uuid.ToString()) |> Async.AwaitTask
+        }
+
+    member x.ReconnectProfile devicePath =
+        async {
+            try
+                do! x.DisconnectProfile devicePath
+            with
+            | e ->
+                printfn "DisconnectProfile '%O' failed: %A" devicePath e
+        
+            async {
+                try
+                    do! x.StartConnectionLoop devicePath
+                with
+                | e ->
+                    printfn "ReconnectProfile '%O' failed: %A" devicePath e
+            }
+            |> Async.Start                            
+        }
+    member x.UUID = uuid
+    
+    member x.StartConnectionLoop o =
+        async {
+            let mutable connected = false
+            while not connected do
+                try
+                    printfn "Starting RFCOMM ... %O" o
+                    do! x.ConnectProfile(o)
+                    connected <- true
+                with
+                | e ->
+                    printfn "Connection attempt failed, trying again in 5 seconds: %A" e
+                    do! Async.Sleep 5000
+        }
 
 type InterfaceAddedRemovedMessage =
     | ObjectConnected of ObjectInfo
@@ -509,9 +584,9 @@ let startDiscover (dbusBus:Connection) (p:ObjectPath) =
     }
 
 
-let registerHorevoProfile (dbusBus:Connection) dispatch (uuid:Guid) =
+let registerHorevoProfile (dbusBus:Connection) dispatch =
     async {
-        let profile = new HorevoProfile(dbusBus, dispatch, uuid)
+        let profile = new HorevoProfile(dbusBus, dispatch)
         do! dbusBus.RegisterObjectAsync(profile) |> Async.AwaitTask
         let profileManager = dbusBus.CreateProxy<IProfileManager1>(bluezName, ObjectPath "/org/bluez")
         let dic = new Dictionary<string, obj>()
@@ -520,7 +595,7 @@ let registerHorevoProfile (dbusBus:Connection) dispatch (uuid:Guid) =
         //dic.["Role"] <- "client"
         //dic.["Name"] <- "SerialPort"
         //dic.["Service"] <- "00000003-0000-1000-8000-00805F9B34FB" // RFCOMM, see https://www.bluetooth.com/specifications/assigned-numbers/service-discovery
-        do! profileManager.RegisterProfileAsync(profile.ObjectPath, uuid.ToString(), dic) |> Async.AwaitTask
+        do! profileManager.RegisterProfileAsync(profile.ObjectPath, profile.UUID.ToString(), dic) |> Async.AwaitTask
         return profile
     }
 
@@ -536,12 +611,6 @@ let unregisterHorevoProfile (dbusBus:Connection) (profile:HorevoProfile) =
         return ()
     }
 
-let connectProfile (dbusBus:Connection) (profile:HorevoProfile) (uuid:Guid) (devicePath:ObjectPath) =
-    async {
-        let device = dbusBus.CreateProxy<IDevice1>(bluezName, devicePath)
-        // register dbus if needed
-        do! device.ConnectProfileAsync(uuid.ToString()) |> Async.AwaitTask
-    }
 
 let pairDevice (dbusBus:Connection) (p:ObjectPath) =
     async {
@@ -577,25 +646,11 @@ type ManagerInitState =
     | InitError of Exception
     | Init of ILampManager
 
-let horevoProfileUuid = Guid.Parse "00001101-0000-1000-8000-00805F9B34FB"
-let startConnectionLoop dbusBus profile o =
-    async {
-        let mutable connected = false
-        while not connected do
-            try
-                printfn "Starting RFCOMM ... %O" o.Path
-                do! connectProfile dbusBus profile horevoProfileUuid o.Path
-                connected <- true
-            with
-            | e ->
-                printfn "Connection attempt failed, trying again in 5 seconds: %A" e
-                do! Async.Sleep 5000
-    }
 
-let handleConnection (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampConfig>) profile (o:ObjectInfo) =
+let handleConnection (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampConfig>) (profile:HorevoProfile) (o:ObjectInfo) =
     async {
         try
-            printfn "ObjectConnected %A" o
+            printfn "ObjectConnected %O" o
             match o.DeviceProps with
             | Some devProps -> 
                 match lamps.TryGetValue devProps.Address with
@@ -603,8 +658,8 @@ let handleConnection (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampCon
                     // check if we can find the service
                     match lampConfig.Type with
                     | HorevoConfig ->
-                        if devProps.UUIDs |> Seq.map Guid.Parse |> Seq.contains horevoProfileUuid |> not then
-                            raise <| exn (sprintf "Cannot find horevo uuid '%O' in UUIDs from device %O: %A" horevoProfileUuid o.Path devProps.UUIDs)
+                        if devProps.UUIDs |> Seq.map Guid.Parse |> Seq.contains profile.UUID |> not then
+                            raise <| exn (sprintf "Cannot find horevo uuid '%O' in UUIDs from device %O: %A" profile.UUID o.Path devProps.UUIDs)
                         if not devProps.Paired then
                             printfn "Pairing ... %O" o.Path
                             do! pairDevice dbusBus o.Path
@@ -617,13 +672,13 @@ let handleConnection (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampCon
                         //        printfn "connecting failed ... %A " e
                         if not devProps.Trusted then
                             printfn "Device is not trusted! %O" o.Path
-                        return! startConnectionLoop dbusBus profile o                    
+                        return! profile.StartConnectionLoop o.Path                  
                 | _ -> 
                     printfn "Not found in config... %A" o
             | None -> printfn "No device properties found for %A" o
         with
         | e ->
-            printfn "handleConnection failed: %A" e        
+            printfn "handleConnection failed: %A" e
     }
     |> Async.Start
 
@@ -640,9 +695,9 @@ let doInitManager (config:TypeSafeConfig) (dbusBus:Connection) =
         let! profile = registerHorevoProfile dbusBus (function
             | LogMessage msg -> printfn "%A: %s - %A" msg.Level msg.Message msg.Exception
             | ReceivedData (con, mem) -> ()
-            | LampConnected con -> ()
-            | LampDisconnected con -> ()
-            | Heartbeat con -> ()) horevoProfileUuid
+            | LampConnected con -> printfn "lamp connected: %A" con
+            | LampDisconnected con -> printfn "lamp disconnected: %A" con
+            | Heartbeat con -> ())
 
         let! mgr, devices = connectInterface dbusBus (function
             | ObjectDisconnected o -> printfn "ObjectDisconnected %A" o
@@ -804,7 +859,7 @@ module InternalError =
                h1 [] [rawText "ERROR #500"]
                h3 [] [rawText ex.Message]
                h4 [] [rawText ex.Source]
-               p [] [rawText ex.StackTrace]
+               p [] [rawText (ex.ToString())]
                a [_href "/" ] [rawText "Go back to home page"]
             ]
     ]
