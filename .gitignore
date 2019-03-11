@@ -1,0 +1,9 @@
+.vs/
+
+external/*
+!external/mylib/
+!external/Dockerfile
+!external/script.kts
+*.hprof
+*.stackdump
+out/

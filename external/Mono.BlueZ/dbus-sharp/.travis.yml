@@ -1,8 +1,0 @@
-addons:
-  apt:
-    sources:
-    - mono-nightly
-    packages:
-    - mono-devel
-script:
- - xbuild /p:Configuration=Debug src/dbus-sharp.csproj

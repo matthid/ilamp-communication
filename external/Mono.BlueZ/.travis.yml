@@ -1,8 +1,0 @@
-addons:
-  apt:
-    sources:
-    - mono-nightly
-    packages:
-    - mono-devel
-script:
- - xbuild /p:Configuration=Debug Mono.BlueZ.sln
