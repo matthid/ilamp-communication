@@ -1,0 +1,12 @@
+[Unit]
+Description=My ilamp Service
+After=bluetooth.service dbus.service
+
+[Service]
+Type=simple
+User=matthid
+ExecStart=/home/matthid/ilamp_deploy/ilamp-communication
+WorkingDirectory=/home/matthid/ilamp_deploy
+
+[Install]
+WantedBy=multi-user.target
