@@ -19,7 +19,7 @@ Lamp <---(1.)---> Server <---(2.)---> Smartthings Platform
 
 ## Setup
 
-- Deploy the server (see & edit `run.sh` and `myilamp.service`), its basically a xcopy deployment and easy to integrate into systemd
+- Deploy the server (see & edit `run.sh` and `myilamp.service`), its basically a xcopy deployment and easy to integrate into systemd. You can download the server [from the releases page](https://github.com/matthid/ilamp-communication/releases) if you don't want to compile yourself 
 - Test your server and see if you can control your lamp with the example requests below (in the API section). Replace IP with your deployment.
 - [Login to the SmartThings Developer Portal](https://graph.api.smartthings.com/)
 - Click "My Locations" and select your Hub location (this might redirect to your local graph: `https://graph-eu01-euwest1.api.smartthings.com`)
