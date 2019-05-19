@@ -1,11 +1,25 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.271
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.452
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ilamp-communication", "src\ilamp-communication\ilamp-communication.fsproj", "{20A8A7ED-A2E5-49C8-B163-6E8BFEB8371C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ilamp-communication.dbus", "src\ilamp-communication.dbus\ilamp-communication.dbus.csproj", "{EA9688E1-C22F-4EE5-B879-78F98571F99A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{9B2D115C-B17B-4D2F-9D5A-9A86197F1C93}"
+	ProjectSection(SolutionItems) = preProject
+		.dockerignore = .dockerignore
+		.gitignore = .gitignore
+		buildIde.sh = buildIde.sh
+		deviceHandler.groovy = deviceHandler.groovy
+		Dockerfile = Dockerfile
+		myilamp.service = myilamp.service
+		Readme.md = Readme.md
+		RelevantDocs.md = RelevantDocs.md
+		run.sh = run.sh
+		runIde.sh = runIde.sh
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
