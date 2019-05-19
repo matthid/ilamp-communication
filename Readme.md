@@ -15,7 +15,7 @@ Lamp <---(1.)---> Server <---(2.)---> Smartthings Platform
 - Doesn't work without internet
 - No Security (use a local hardened network)
 - Works for [this lamp](https://www.amazon.de/gp/product/B0774QKF8K/ref=ppx_yo_dt_b_asin_title_o02_s01?ie=UTF8&psc=1).
-  It's possible that it works for all devices where the following apps are used/work Play Store: [i-lamp](https://play.google.com/store/apps/details?id=com.chipsguide.app.colorbluetoothlamp.v3.changda.gp&hl=de), App Store: [i-lamp](https://itunes.apple.com/us/app/i-lamp/id1140789133?mt=8)
+  It's possible that it works for all devices where the following apps are used/work... Play Store: [i-lamp](https://play.google.com/store/apps/details?id=com.chipsguide.app.colorbluetoothlamp.v3.changda.gp&hl=de), App Store: [i-lamp](https://itunes.apple.com/us/app/i-lamp/id1140789133?mt=8)
 
 ## Setup
 
