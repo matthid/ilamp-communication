@@ -1,56 +1,98 @@
-Ressources
+# ilamp-communication
 
-https://www.defcon.org/images/defcon-22/dc-22-presentations/Strazzere-Sawyer/DEFCON-22-Strazzere-and-Sawyer-Android-Hacker-Protection-Level-UPDATED.pdf
+This is a server for integration into Smartthings, based on https://github.com/samsam2310/Bluetooth-Chsmartbulb-Python-API
 
-https://github.com/strazzere/android-unpacker
+## How it works
 
-https://loccs.sjtu.edu.cn/~romangol/publications/jss18.pdf
-https://github.com/UchihaL/AppSpear
+Lamp <---(1.)---> Server <---(2.)---> Smartthings Platform
 
+1. Bluetooth connection implemented via Bluez DBus API (C# Code generated via `Tmds.DBus`). Documentation is on [kernel.org](https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc) and [github](https://github.com/RadiusNetworks/bluez/blob/master/doc/device-api.txt). Generated code and some hand-written extensions are in the 'ilamp-communication.dbus' C# project. This currently only works on Unix/Linux systems.
 
-https://github.com/zyq8709/DexHunter
+2. Server provides a REST API (details below). This API is referenced in the `deviceHandler.groovy` script in the SmartThings platform. Currently, the API is designed to be used without any security on the same local network as the SmartThings hub. So don't host the server publically (if you don't want the internet to control your lamps)! Note that the script actually runs on the cloud as local processing is not an option for developers like myself (see [the docs](https://community.smartthings.com/t/write-smartapp-to-run-locally/96808/2) and [the forums](https://support.smartthings.com/hc/en-us/articles/209979766-Local-processing)). This means your automations will not work if you loose internet connection. Documentation can be found on [SmartThings](https://docs.smartthings.com/en/latest/ref-docs/device-handler-ref.html)
 
+## Limitations
+
+- Doesn't work without internet
+- No Security (use a local hardened network)
+
+## Setup
+
+- Deploy the server (see & edit `run.sh` and `myilamp.service`), its basically a xcopy deployment and easy to integrate into systemd
+- Test your server and see if you can control your lamp with the example requests below (in the API section). Replace IP with your deployment.
+- [Login to the SmartThings Developer Portal](https://graph.api.smartthings.com/)
+- Click "My Locations" and select your Hub location (this might redirect to your local graph: `https://graph-eu01-euwest1.api.smartthings.com`)
+- Click "My Device Handlers" and add a new device handler, paste the code from `deviceHandler.groovy` and click 'Create'
+- Click "Publish" -> "For Me"
+- Click "My Devices" and add a new Device
+  - Set a 'Name' and a 'Label' as you like
+  - Set 'Debice Network Id *' to 'NULL'
+  - Select "Horevo LED Lamp" as type
+  - Select "Self-Published" as Version
+  - Select the 'Location', the 'Hub' and the 'Group' where the lamp is located.
+- Select the newly created device (if not already) and edit the 'Preferences'
+  - Set the hostname or IP of the Server (REST). This needs to be accessible/resolvable from the hub. Example `192.168.178.25`
+  - Set the port. Default `8585`
+  - Set the mac address of the lamp. Example `C9A305FEBD41`
+
+  After clicking save it should look similar to:
+
+  | Name | Type | Value |
+  | ---- | ---- | ----- |
+  | baseUriHost | string | 192.168.178.25 |
+  | baseUriPort | string | 8585 |
+  | macAddress | string | C9A305FEBD41 |
+
+- Now you should be able to control your lamp via the SmartThings platform.
 
 ## API
 
+The rest API can be used manually if needed.
 
-Python example:
- 
-``` python
-from audiolight.bulb import Bulb
+Generally a request looks like
 
-mac_addr = 'C9:A3:05:FE:BD:41'
+`http://<IP>:<PORT>/api/lamps/<MAC>?action=<ACTION>&<ARGS>`:
 
-bulb = Bulb(mac_addr)
-bulb.connect()
+where
 
-bulb.set_mode(True, True) # To color mode & enabled
-bulb.set_color(1.0, '0000ff') # Set color to blue
+- IP: The ip-address of the server
+- PORT: The port of the server
+- MAC: The mac address of the lamp, without any separators. For example `C9A305FEBD41`.
+- ACTION & ARGS: The action to execute:
+
+  | Action | Argument | Type | Range |
+  |--------|-----------|------|-------|
+  | `set_color` | `brightness` | `double` | 0 - 1 |
+  |   | `color` | `RRGGBB Color` | 000000 - FFFFFF |
+  | `set_warm_brightness` | `brightness` | `double` | 0 - 1 |
+  | `set_warm_color` | `color` | `double` | 0 - 1 |
+  | `poweron_white` |  |  | |
+  | `poweron_color` |  |  | |
+  | `powerooff` |  |  | |
+
+The result is a json with the status of the lamp:
+
+```json
+{
+    "status":"OK",
+    "data": {
+        "device": {},
+        "uuid":"00001101-0000-1000-8000-00805f9b34fb",
+        "profile": {
+            "objectPath": {},
+            "uuid":"00001101-0000-1000-8000-00805f9b34fb"
+        },
+        "id":"C9:A3:05:FE:BD:41"
+    }
+}
 ```
 
-Connect
+### Set-Color
 
-
-```python
-        self._sock.connect((self._host, self._port))
-
-        # First of all, send '01234567'
-        self._send_hex_string('3031323334353637')
-
-        # Send maybe a query message or a heartbeat message.
-        # Official app do this about once per second.
-        self._send_hex_string('01fe0000510210000000008000000080')
-        self._recv_bytes(16)
-        self._is_connected = True
-```
-
-Set-Color
-
-# red
+#### red
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.5&color=FF0000
-# green
+#### green
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.5&color=00FF00
-# blue
+#### blue
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.5&color=0000FF
 
 ```python
@@ -64,7 +106,7 @@ http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_color&brightness=0.
 # send 01fe000051811c0000000000000000000d0a02030c010000000e0000 # brightness 01RRGGBB
 ```
 
-Set-Warm-Brightness
+### Set-Warm-Brightness
 
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_warm_brightness&brightness=0.5
 
@@ -81,7 +123,7 @@ http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_warm_brightness&bri
 # send 01fe00005181180000000000000000000d07010302010e00 // 0x01 ~ 0x10 ... hex2(int(16 * percent))
 ```
 
-Set-Warm-Color
+### Set-Warm-Color
 
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_warm_color&color=0.5
 
@@ -97,7 +139,7 @@ http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=set_warm_color&color=0.
 # send 01fe00005181180000000000000000000d07010303010e00 // 0x01 ~ 0xFF ... hex2(int(255 * percent))
 ```
 
-Set-Mode
+### Set-Mode
 
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=poweron_white
 http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=poweron_color
@@ -110,7 +152,7 @@ http://192.168.178.25:8585/api/lamps/C9A305FEBD41?action=poweroff
                 "02" if is_color_mode else "01",
                 "01" if is_enabled else "02"
             )
-# send 01fe00005181180000000000000000000d07020301020e00 //true false
-# send 01fe00005181180000000000000000000d07010301010e00 // false true 
-# send 01fe00005181180000000000000000000d07020301010e00 // true true 
+# send 01fe00005181180000000000000000000d07020301020e00 // true false
+# send 01fe00005181180000000000000000000d07010301010e00 // false true
+# send 01fe00005181180000000000000000000d07020301010e00 // true true
 ```
