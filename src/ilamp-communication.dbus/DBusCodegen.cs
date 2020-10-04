@@ -47,7 +47,7 @@ namespace bluez.DBus
     [Dictionary]
     public class Adapter1Properties
     {
-        private string _Address = default (string);
+        private string _Address = default(string);
         public string Address
         {
             get
@@ -61,7 +61,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _AddressType = default (string);
+        private string _AddressType = default(string);
         public string AddressType
         {
             get
@@ -75,7 +75,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Name = default (string);
+        private string _Name = default(string);
         public string Name
         {
             get
@@ -89,7 +89,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Alias = default (string);
+        private string _Alias = default(string);
         public string Alias
         {
             get
@@ -103,7 +103,7 @@ namespace bluez.DBus
             }
         }
 
-        private uint _Class = default (uint);
+        private uint _Class = default(uint);
         public uint Class
         {
             get
@@ -117,7 +117,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Powered = default (bool);
+        private bool _Powered = default(bool);
         public bool Powered
         {
             get
@@ -131,7 +131,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Discoverable = default (bool);
+        private bool _Discoverable = default(bool);
         public bool Discoverable
         {
             get
@@ -145,7 +145,7 @@ namespace bluez.DBus
             }
         }
 
-        private uint _DiscoverableTimeout = default (uint);
+        private uint _DiscoverableTimeout = default(uint);
         public uint DiscoverableTimeout
         {
             get
@@ -159,7 +159,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Pairable = default (bool);
+        private bool _Pairable = default(bool);
         public bool Pairable
         {
             get
@@ -173,7 +173,7 @@ namespace bluez.DBus
             }
         }
 
-        private uint _PairableTimeout = default (uint);
+        private uint _PairableTimeout = default(uint);
         public uint PairableTimeout
         {
             get
@@ -187,7 +187,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Discovering = default (bool);
+        private bool _Discovering = default(bool);
         public bool Discovering
         {
             get
@@ -201,7 +201,7 @@ namespace bluez.DBus
             }
         }
 
-        private string[] _UUIDs = default (string[]);
+        private string[] _UUIDs = default(string[]);
         public string[] UUIDs
         {
             get
@@ -215,7 +215,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Modalias = default (string);
+        private string _Modalias = default(string);
         public string Modalias
         {
             get
@@ -228,30 +228,9 @@ namespace bluez.DBus
                 _Modalias = (value);
             }
         }
-
-
-        public IDictionary<string, object> AsDictionary()
-        {
-            return new Dictionary<string, object>()
-            {
-                {nameof(Address), Address},
-                {nameof(AddressType), AddressType},
-                {nameof(Name), Name},
-                {nameof(Alias), Alias},
-                {nameof(Class), Class},
-                {nameof(Powered), Powered},
-                {nameof(Discoverable), Discoverable},
-                {nameof(DiscoverableTimeout), DiscoverableTimeout},
-                {nameof(Pairable), Pairable},
-                {nameof(PairableTimeout), PairableTimeout},
-                {nameof(Discovering), Discovering},
-                {nameof(UUIDs), UUIDs},
-                {nameof(Modalias), Modalias}
-            };
-        }
     }
 
-    static public class Adapter1Extensions
+    public static class Adapter1Extensions
     {
         public static Task<string> GetAddressAsync(this IAdapter1 o) => o.GetAsync<string>("Address");
         public static Task<string> GetAddressTypeAsync(this IAdapter1 o) => o.GetAsync<string>("AddressType");
@@ -295,7 +274,7 @@ namespace bluez.DBus
     [Dictionary]
     public class LEAdvertisingManager1Properties
     {
-        private byte _ActiveInstances = default (byte);
+        private byte _ActiveInstances = default(byte);
         public byte ActiveInstances
         {
             get
@@ -309,7 +288,7 @@ namespace bluez.DBus
             }
         }
 
-        private byte _SupportedInstances = default (byte);
+        private byte _SupportedInstances = default(byte);
         public byte SupportedInstances
         {
             get
@@ -323,7 +302,7 @@ namespace bluez.DBus
             }
         }
 
-        private string[] _SupportedIncludes = default (string[]);
+        private string[] _SupportedIncludes = default(string[]);
         public string[] SupportedIncludes
         {
             get
@@ -336,13 +315,28 @@ namespace bluez.DBus
                 _SupportedIncludes = (value);
             }
         }
+
+        private string[] _SupportedSecondaryChannels = default(string[]);
+        public string[] SupportedSecondaryChannels
+        {
+            get
+            {
+                return _SupportedSecondaryChannels;
+            }
+
+            set
+            {
+                _SupportedSecondaryChannels = (value);
+            }
+        }
     }
 
-    static public class LEAdvertisingManager1Extensions
+    public static class LEAdvertisingManager1Extensions
     {
         public static Task<byte> GetActiveInstancesAsync(this ILEAdvertisingManager1 o) => o.GetAsync<byte>("ActiveInstances");
         public static Task<byte> GetSupportedInstancesAsync(this ILEAdvertisingManager1 o) => o.GetAsync<byte>("SupportedInstances");
         public static Task<string[]> GetSupportedIncludesAsync(this ILEAdvertisingManager1 o) => o.GetAsync<string[]>("SupportedIncludes");
+        public static Task<string[]> GetSupportedSecondaryChannelsAsync(this ILEAdvertisingManager1 o) => o.GetAsync<string[]>("SupportedSecondaryChannels");
     }
 
     [DBusInterface("org.bluez.Media1")]
@@ -352,6 +346,8 @@ namespace bluez.DBus
         Task UnregisterEndpointAsync(ObjectPath Endpoint);
         Task RegisterPlayerAsync(ObjectPath Player, IDictionary<string, object> Properties);
         Task UnregisterPlayerAsync(ObjectPath Player);
+        Task RegisterApplicationAsync(ObjectPath Application, IDictionary<string, object> Options);
+        Task UnregisterApplicationAsync(ObjectPath Application);
     }
 
     [DBusInterface("org.bluez.NetworkServer1")]
@@ -379,7 +375,7 @@ namespace bluez.DBus
     [Dictionary]
     public class Device1Properties
     {
-        private string _Address = default (string);
+        private string _Address = default(string);
         public string Address
         {
             get
@@ -393,7 +389,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _AddressType = default (string);
+        private string _AddressType = default(string);
         public string AddressType
         {
             get
@@ -407,7 +403,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Name = default (string);
+        private string _Name = default(string);
         public string Name
         {
             get
@@ -421,7 +417,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Alias = default (string);
+        private string _Alias = default(string);
         public string Alias
         {
             get
@@ -435,7 +431,7 @@ namespace bluez.DBus
             }
         }
 
-        private uint _Class = default (uint);
+        private uint _Class = default(uint);
         public uint Class
         {
             get
@@ -449,7 +445,7 @@ namespace bluez.DBus
             }
         }
 
-        private ushort _Appearance = default (ushort);
+        private ushort _Appearance = default(ushort);
         public ushort Appearance
         {
             get
@@ -463,7 +459,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Icon = default (string);
+        private string _Icon = default(string);
         public string Icon
         {
             get
@@ -477,7 +473,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Paired = default (bool);
+        private bool _Paired = default(bool);
         public bool Paired
         {
             get
@@ -491,7 +487,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Trusted = default (bool);
+        private bool _Trusted = default(bool);
         public bool Trusted
         {
             get
@@ -505,7 +501,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Blocked = default (bool);
+        private bool _Blocked = default(bool);
         public bool Blocked
         {
             get
@@ -519,7 +515,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _LegacyPairing = default (bool);
+        private bool _LegacyPairing = default(bool);
         public bool LegacyPairing
         {
             get
@@ -533,7 +529,7 @@ namespace bluez.DBus
             }
         }
 
-        private short _RSSI = default (short);
+        private short _RSSI = default(short);
         public short RSSI
         {
             get
@@ -547,7 +543,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _Connected = default (bool);
+        private bool _Connected = default(bool);
         public bool Connected
         {
             get
@@ -561,7 +557,7 @@ namespace bluez.DBus
             }
         }
 
-        private string[] _UUIDs = default (string[]);
+        private string[] _UUIDs = default(string[]);
         public string[] UUIDs
         {
             get
@@ -575,7 +571,7 @@ namespace bluez.DBus
             }
         }
 
-        private string _Modalias = default (string);
+        private string _Modalias = default(string);
         public string Modalias
         {
             get
@@ -589,7 +585,7 @@ namespace bluez.DBus
             }
         }
 
-        private ObjectPath _Adapter = default (ObjectPath);
+        private ObjectPath _Adapter = default(ObjectPath);
         public ObjectPath Adapter
         {
             get
@@ -603,7 +599,7 @@ namespace bluez.DBus
             }
         }
 
-        private IDictionary<ushort, object> _ManufacturerData = default (IDictionary<ushort, object>);
+        private IDictionary<ushort, object> _ManufacturerData = default(IDictionary<ushort, object>);
         public IDictionary<ushort, object> ManufacturerData
         {
             get
@@ -617,7 +613,7 @@ namespace bluez.DBus
             }
         }
 
-        private IDictionary<string, object> _ServiceData = default (IDictionary<string, object>);
+        private IDictionary<string, object> _ServiceData = default(IDictionary<string, object>);
         public IDictionary<string, object> ServiceData
         {
             get
@@ -631,7 +627,7 @@ namespace bluez.DBus
             }
         }
 
-        private short _TxPower = default (short);
+        private short _TxPower = default(short);
         public short TxPower
         {
             get
@@ -645,7 +641,7 @@ namespace bluez.DBus
             }
         }
 
-        private bool _ServicesResolved = default (bool);
+        private bool _ServicesResolved = default(bool);
         public bool ServicesResolved
         {
             get
@@ -658,36 +654,9 @@ namespace bluez.DBus
                 _ServicesResolved = (value);
             }
         }
-
-        public IDictionary<string, object> AsDictionary()
-        {
-            return new Dictionary<string, object>()
-            {
-                {nameof(Address), Address},
-                {nameof(AddressType), AddressType},
-                {nameof(Name), Name},
-                {nameof(Alias), Alias},
-                {nameof(Class), Class},
-                {nameof(Appearance), Appearance},
-                {nameof(Icon), Icon},
-                {nameof(Paired), Paired},
-                {nameof(Trusted), Trusted},
-                {nameof(Blocked), Blocked},
-                {nameof(LegacyPairing), LegacyPairing},
-                {nameof(RSSI), RSSI},
-                {nameof(Connected), Connected},
-                {nameof(UUIDs), UUIDs},
-                {nameof(Modalias), Modalias},
-                {nameof(Adapter), Adapter},
-                {nameof(ManufacturerData), ManufacturerData},
-                {nameof(ServiceData), ServiceData},
-                {nameof(TxPower), TxPower},
-                {nameof(ServicesResolved), ServicesResolved},
-            };
-        }
     }
 
-    static public class Device1Extensions
+    public static class Device1Extensions
     {
         public static Task<string> GetAddressAsync(this IDevice1 o) => o.GetAsync<string>("Address");
         public static Task<string> GetAddressTypeAsync(this IDevice1 o) => o.GetAsync<string>("AddressType");
