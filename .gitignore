@@ -1,4 +1,5 @@
 .vs/
+.ionide/
 
 external/*
 !external/mylib/
