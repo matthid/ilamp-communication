@@ -95,6 +95,56 @@ namespace bluez.DBus
         }
     }
 
+    public static class DBusExtensions
+    {
+        public static IDictionary<string, object> AsDictionary(this Adapter1Properties properties)
+        {
+            return new Dictionary<string, object>()
+            {
+                {nameof(properties.Address), properties.Address},
+                {nameof(properties.AddressType), properties.AddressType},
+                {nameof(properties.Name), properties.Name},
+                {nameof(properties.Alias), properties.Alias},
+                {nameof(properties.Class), properties.Class},
+                {nameof(properties.Powered), properties.Powered},
+                {nameof(properties.Discoverable), properties.Discoverable},
+                {nameof(properties.DiscoverableTimeout), properties.DiscoverableTimeout},
+                {nameof(properties.Pairable), properties.Pairable},
+                {nameof(properties.PairableTimeout), properties.PairableTimeout},
+                {nameof(properties.Discovering), properties.Discovering},
+                {nameof(properties.UUIDs), properties.UUIDs},
+                {nameof(properties.Modalias), properties.Modalias}
+            };
+        }
+
+        public static IDictionary<string, object> AsDictionary(this Device1Properties properties)
+        {
+            return new Dictionary<string, object>()
+            {
+                {nameof(properties.Address), properties.Address},
+                {nameof(properties.AddressType), properties.AddressType},
+                {nameof(properties.Name), properties.Name},
+                {nameof(properties.Alias), properties.Alias},
+                {nameof(properties.Class), properties.Class},
+                {nameof(properties.Appearance), properties.Appearance},
+                {nameof(properties.Icon), properties.Icon},
+                {nameof(properties.Paired), properties.Paired},
+                {nameof(properties.Trusted), properties.Trusted},
+                {nameof(properties.Blocked), properties.Blocked},
+                {nameof(properties.LegacyPairing), properties.LegacyPairing},
+                {nameof(properties.RSSI), properties.RSSI},
+                {nameof(properties.Connected), properties.Connected},
+                {nameof(properties.UUIDs), properties.UUIDs},
+                {nameof(properties.Modalias), properties.Modalias},
+                {nameof(properties.Adapter), properties.Adapter},
+                {nameof(properties.ManufacturerData), properties.ManufacturerData},
+                {nameof(properties.ServiceData), properties.ServiceData},
+                {nameof(properties.TxPower), properties.TxPower},
+                {nameof(properties.ServicesResolved), properties.ServicesResolved},
+            };
+        }
+    }
+
     [DBusInterface("org.bluez.Profile1")]
     public interface IProfile1 : IDBusObject
     {

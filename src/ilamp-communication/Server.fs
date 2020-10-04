@@ -15,7 +15,6 @@ open System.Runtime.InteropServices
 open System
 open Microsoft.Extensions.Configuration
 open Tmds.DBus
-open Tmds.DBus
 open System
 
 type MacAddress = string
@@ -175,16 +174,16 @@ type ObjectInfo =
     member x.IsDevice = x.DeviceProps.IsSome
 
     override x.ToString() =
-        let inline someOrNone (s: ^a option) =
+        let inline someOrNone getDict (s: ^a option) =
             match s with
             | Some s -> 
-                let dict = (^a : (member AsDictionary : unit -> IDictionary<string, obj>) (s))
+                let dict = getDict s
                 sprintf "Some (%s)" (ReflectionBased.printValue dict)
             | None -> "None"
         sprintf """{ Path = %O;
  AdapterProps = %s;
  LEAdvertisingProps = %A;
- DeviceProps = %s; }""" x.Path (someOrNone x.AdapterProps) (x.LEAdvertisingProps) (someOrNone x.DeviceProps)
+ DeviceProps = %s; }""" x.Path (someOrNone (fun (t:Adapter1Properties) -> t.AsDictionary()) x.AdapterProps) (x.LEAdvertisingProps) (someOrNone (fun (t:Device1Properties) -> t.AsDictionary()) x.DeviceProps)
 
 type LogLevel =
     | Debug
@@ -269,6 +268,32 @@ let getDeviceProperties (dbusBus:Connection) (p:ObjectPath) =
         let! props = device.GetAllAsync() |> Async.AwaitTask
         return props
     }
+
+    
+let getAdapters (con:Connection) =
+    async{
+        let manager = con.CreateProxy<IObjectManager>(bluezName, ObjectPath.Root)
+        let! d = manager.GetManagedObjectsAsync() |> Async.AwaitTask
+        return
+            d
+            |> Seq.toList
+            |> List.map (fun kv -> kv.Key, kv.Value)
+            |> List.filter (fun (key, value) ->
+                value.ContainsKey "org.bluez.Adapter1")
+            |> List.map (fun (key, value) ->
+                (key, value), lazy con.CreateProxy<IAdapter1>(bluezName, key), lazy con.CreateProxy<IGattManager1>(bluezName, key))
+    }
+    
+let startDiscover (adapter:IAdapter1) =
+    async {
+        do! adapter.StartDiscoveryAsync() |> Async.AwaitTask
+    }
+
+let stopDiscover (adapter:IAdapter1) =
+    async {
+        do! adapter.StopDiscoveryAsync() |> Async.AwaitTask
+    }
+        
 
 type HorevoProfileCallback =
     | LogMessage of LogMessage
@@ -431,13 +456,42 @@ and HorevoProfileConnection(dispatch : Dispatch<HorevoProfileCallback>, props:De
         readerTask.Wait()
         handle.Close()
 
-
 and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>) =
     static let uuid = Guid.Parse "00001101-0000-1000-8000-00805F9B34FB"
     let logExn exn level message = log LogMessage dispatch exn level message
     let log level message = log LogMessage dispatch null level message
     let connections = ResizeArray<HorevoProfileConnection>()
     let path =  ObjectPath ("/ilamp/bluez/myprofile/" + uuid.ToString().Replace("-", ""))
+    let discoverTask =
+        async {
+            while true do
+                try
+                    do! Async.Sleep 5000
+                    if connections.Count <= 0 then
+                        log LogLevel.Info (sprintf "starting discovery for 10 seconds for each adapter as no connection available yet")
+                        let! list = getAdapters dbus
+                        for _, adapter, _ in list do
+                            let doStop() =
+                                async {
+                                    do! stopDiscover adapter.Value
+                                }
+                            let mutable ok = false
+                            try
+                                do! startDiscover adapter.Value
+                                do! Async.Sleep 10000
+                                ok <- true
+                                do! doStop()
+                            with e when not ok ->
+                                try
+                                    do! doStop()
+                                with ex ->
+                                    logExn ex LogLevel.Error "Exception in doStop"
+                                raise <| exn("Reraising error from startDiscover", e)
+                with e ->
+                    logExn e LogLevel.Error "Exception in discoverTask"
+    
+        }
+        |> Async.StartAsTask
     member x.ObjectPath = path
     interface IProfile1 with
         member x.ReleaseAsync() = 
@@ -507,7 +561,7 @@ and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>) =
         
             async {
                 try
-                    do! x.StartConnectionLoop devicePath
+                    do! x.StartConnectionLoop (fun () -> async.Return()) devicePath
                 with
                 | e ->
                     printfn "ReconnectProfile '%O' failed: %A" devicePath e
@@ -516,11 +570,13 @@ and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>) =
         }
     member x.UUID = uuid
     
-    member x.StartConnectionLoop o =
+    member x.StartConnectionLoop preconnect o =
         async {
             let mutable connected = false
             while not connected do
                 try
+                    do! preconnect()
+
                     printfn "Starting RFCOMM ... %O" o
                     do! x.ConnectProfile(o)
                     connected <- true
@@ -531,8 +587,8 @@ and HorevoProfile (dbus:Connection, dispatch: Dispatch<HorevoProfileCallback>) =
         }
 
 type InterfaceAddedRemovedMessage =
-    | ObjectConnected of ObjectInfo
-    | ObjectDisconnected of ObjectPath
+    | ObjectAdded of ObjectInfo
+    | ObjectRemoved of ObjectPath
 
 let connectInterface (dbusBus:Connection) (dispatch:Dispatch<InterfaceAddedRemovedMessage>) =
     async {
@@ -545,14 +601,14 @@ let connectInterface (dbusBus:Connection) (dispatch:Dispatch<InterfaceAddedRemov
         let! d =
             manager.WatchInterfacesAddedAsync(
                 (fun struct (path, dict) ->
-                    dispatch (ObjectConnected (getDevice path dict))),
+                    dispatch (ObjectAdded (getDevice path dict))),
                 (fun exn ->
                     System.Console.WriteLine("Error while adding interface: {0}", exn)))
                 |> Async.AwaitTask
         let! d =
             manager.WatchInterfacesRemovedAsync(
                 (fun struct (path, dict) ->
-                    dispatch (ObjectDisconnected (path))),
+                    dispatch (ObjectRemoved (path))),
                 (fun exn ->
                     System.Console.WriteLine("Error while removing interface: {0}", exn)))
                 |> Async.AwaitTask
@@ -563,7 +619,7 @@ let connectInterface (dbusBus:Connection) (dispatch:Dispatch<InterfaceAddedRemov
             |> Seq.toList
         return manager, connectInfo
     }
-
+        
 let connectDevice (dbusBus:Connection) (p:ObjectPath) =
     async {
         let device = dbusBus.CreateProxy<IDevice1>(bluezName, p)
@@ -576,13 +632,6 @@ let disconnectDevice (dbusBus:Connection) (p:ObjectPath) =
         let device = dbusBus.CreateProxy<IDevice1>(bluezName, p)
         do! device.DisconnectAsync() |> Async.AwaitTask
     }
-
-let startDiscover (dbusBus:Connection) (p:ObjectPath) =
-    async {
-        let adapter = dbusBus.CreateProxy<IAdapter1>(bluezName, p)
-        do! adapter.StartDiscoveryAsync() |> Async.AwaitTask
-    }
-
 
 let registerHorevoProfile (dbusBus:Connection) dispatch =
     async {
@@ -628,29 +677,16 @@ let unpairDevice (dbusBus:Connection) (p:ObjectPath) =
     }
 
 
-let getAdapters (con:Connection) (manager:IObjectManager) =
-    async{
-        let! d = manager.GetManagedObjectsAsync() |> Async.AwaitTask
-        return
-            d
-            |> Seq.toList
-            |> List.map (fun kv -> kv.Key, kv.Value)
-            |> List.filter (fun (key, value) ->
-                value.ContainsKey "org.bluez.Adapter1")
-            |> List.map (fun (key, value) ->
-                (key, value), lazy con.CreateProxy<IAdapter1>(bluezName, key), lazy con.CreateProxy<IGattManager1>(bluezName, key))
-    }
-
 type ManagerInitState =
     | NotInit
     | InitError of Exception
     | Init of ILampManager
 
 
-let handleConnection (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampConfig>) (profile:HorevoProfile) (o:ObjectInfo) =
+let handleDeviceAdded (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampConfig>) (profile:HorevoProfile) (o:ObjectInfo) =
     async {
         try
-            printfn "ObjectConnected %O" o
+            printfn "ObjectAdded %O" o
             match o.DeviceProps with
             | Some devProps -> 
                 match lamps.TryGetValue devProps.Address with
@@ -658,21 +694,35 @@ let handleConnection (dbusBus:Connection) (lamps:IDictionary<MacAddress, LampCon
                     // check if we can find the service
                     match lampConfig.Type with
                     | HorevoConfig ->
-                        if devProps.UUIDs |> Seq.map Guid.Parse |> Seq.contains profile.UUID |> not then
-                            raise <| exn (sprintf "Cannot find horevo uuid '%O' in UUIDs from device %O: %A" profile.UUID o.Path devProps.UUIDs)
-                        if not devProps.Paired then
-                            printfn "Pairing ... %O" o.Path
-                            do! pairDevice dbusBus o.Path
-                        //if not devProps.Connected then
-                        //    printfn "Connecting ... %O" o.Path
-                        //    try
-                        //        do! connectDevice dbusBus o.Path
-                        //    with
-                        //    | e ->
-                        //        printfn "connecting failed ... %A " e
-                        if not devProps.Trusted then
-                            printfn "Device is not trusted! %O" o.Path
-                        return! profile.StartConnectionLoop o.Path                  
+                        let preconnect () =
+                            async {
+                                // TODO: If there are problems try to check UUIDs first and if already available skip connecting (previous working code)
+                                let! devProps = getDeviceProperties dbusBus o.Path
+                                let! devProps =
+                                    if not devProps.Connected then
+                                        async {
+                                            printfn "Connecting ... %O" o
+                                            try
+                                                do! connectDevice dbusBus o.Path
+                                            with
+                                            | e ->
+                                                printfn "connecting failed ... %A " e
+                                            return! getDeviceProperties dbusBus o.Path
+                                        }
+                                    else
+                                        async {
+                                            return devProps
+                                        }
+                            
+                                if devProps.UUIDs |> Seq.map Guid.Parse |> Seq.contains profile.UUID |> not then
+                                    raise <| exn (sprintf "Cannot find horevo uuid '%O' in UUIDs from device %O: %A" profile.UUID o.Path devProps.UUIDs)
+                                if not devProps.Paired then
+                                    printfn "Pairing ... %O" o.Path
+                                    do! pairDevice dbusBus o.Path
+                                if not devProps.Trusted then
+                                    printfn "Device is not trusted! %O" o.Path
+                            }
+                        return! profile.StartConnectionLoop preconnect o.Path                  
                 | _ -> 
                     printfn "Not found in config... %A" o
             | None -> printfn "No device properties found for %A" o
@@ -690,6 +740,7 @@ let doInitManager (config:TypeSafeConfig) (dbusBus:Connection) =
         // Connect dbus
         let! c = dbusBus.ConnectAsync() |> Async.AwaitTask
         let connectionName = c.LocalName
+        printfn "DBus LocalName: %s" connectionName
 
         // register dbus profile
         let! profile = registerHorevoProfile dbusBus (function
@@ -700,11 +751,11 @@ let doInitManager (config:TypeSafeConfig) (dbusBus:Connection) =
             | Heartbeat con -> ())
 
         let! mgr, devices = connectInterface dbusBus (function
-            | ObjectDisconnected o -> printfn "ObjectDisconnected %A" o
-            | ObjectConnected o -> handleConnection dbusBus lamps profile o)
+            | ObjectRemoved o -> printfn "ObjectDisconnected %A" o
+            | ObjectAdded o -> handleDeviceAdded dbusBus lamps profile o)
 
         for dev in devices do
-            handleConnection dbusBus lamps profile dev
+            handleDeviceAdded dbusBus lamps profile dev
 
         return profile :> ILampManager
     }
