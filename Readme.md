@@ -1,5 +1,8 @@
 # ilamp-communication
 
+ARCHIVED: This has moved to https://gitlab.com/matthid/ilamp-rust as Samsung stopped Groovy support.
+
+
 This is a server for integration into Smartthings, based on https://github.com/samsam2310/Bluetooth-Chsmartbulb-Python-API
 
 ## How it works
